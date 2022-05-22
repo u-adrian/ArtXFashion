@@ -1,5 +1,7 @@
 import os
+import sys
 import time
+from multiprocessing.pool import Pool
 
 import numpy as np
 import pandas
@@ -38,15 +40,17 @@ class SegmentationDataset(Dataset):
         # and read the associated mask from disk in grayscale mode
         image = cv2.imread(imagePath)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mask = cv2.imread(self.maskPaths[idx])
-        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
+        mask = np.load(self.maskPaths[idx])
+        #mask = cv2.imread(self.maskPaths[idx])
+        #mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
         # check to see if we are applying any transformations
         if self.transforms is not None:
             # apply the transformations to both image and its mask
             image = self.transforms(image)
-            mask = self.transforms(mask)
+            #mask = self.transforms(mask)
         # return a tuple of the image and its mask
         return image, mask
+
 
 class MaskDataset(Dataset):
     def __init__(self, maskPaths, transforms):
@@ -74,13 +78,14 @@ class MaskDataset(Dataset):
         return mask
 
 
-
 NUM_EPOCHS = 50
+OUTPUT_CLASSES = 22
 INIT_LR = 0.001
 BATCH_SIZE = 32
 TEST_SPLIT = 0.2
 IMAGE_DATASET_PATH = "C:/Dev/Smart_Data/Clothing_Segmentation/archive/images"
-MASK_DATASET_PATH = "C:/Dev/Smart_Data/Clothing_Segmentation/archive/labels/pixel_level_labels_colored"
+#MASK_DATASET_PATH = "C:/Dev/Smart_Data/Clothing_Segmentation/archive/labels/pixel_level_labels_colored"
+MASK_DATASET_PATH = "C:/Dev/Smart_Data/new_masks/test01"
 WEIGHTS_PATH = "C:/Dev/Smart_Data/Network_Weights"
 STAT_PATH = "C:/Dev/Smart_Data/Network_Weights/Stat"
 INPUT_IMAGE_HEIGHT = 256
@@ -92,7 +97,7 @@ PIN_MEMORY = True if DEVICE == "cuda" else False
 # define transformations
 def load_data(test_split_size):
     imagePaths = sorted(list(paths.list_images(IMAGE_DATASET_PATH)))
-    maskPaths = sorted(list(paths.list_images(MASK_DATASET_PATH)))
+    maskPaths = sorted(list(paths.list_files(MASK_DATASET_PATH)))
     # partition the data into training and testing splits using 85% of
     # the data for training and the remaining 15% for testing
     split = train_test_split(imagePaths, maskPaths, test_size=test_split_size, random_state=42)
@@ -101,8 +106,8 @@ def load_data(test_split_size):
     (trainMasks, testMasks) = split[2:]
 
     transform = transforms.Compose([transforms.ToPILImage(),
-                                     transforms.Resize((INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH)),
-                                     transforms.ToTensor()])
+                                    transforms.Resize((INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH)),
+                                    transforms.ToTensor()])
     # create the train and test datasets
     trainDS = SegmentationDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transform)
     testDS = SegmentationDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transform)
@@ -119,9 +124,9 @@ def load_data(test_split_size):
 
     return trainLoader, testLoader
 
+
 def load_masks_only():
     maskPaths = sorted(list(paths.list_images(MASK_DATASET_PATH)))
-
 
     transform = transforms.Compose([transforms.ToPILImage(),
                                     transforms.Resize((INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH)),
@@ -136,6 +141,7 @@ def load_masks_only():
                              pin_memory=PIN_MEMORY, num_workers=0)
 
     return data_loader
+
 
 def train(model, lossFunc, optimizer, trainLoader, testLoader):
     H = {"train_loss": [], "test_loss": []}
@@ -155,7 +161,11 @@ def train(model, lossFunc, optimizer, trainLoader, testLoader):
             # send the input to the device
             (x, y) = (x.to(DEVICE), y.to(DEVICE))
             # perform a forward pass and calculate the training loss
+            y = y.transpose(2, 3)
+            y = y.transpose(1, 2)
+            y = y.double()
             pred = model(x)
+
             loss = lossFunc(pred, y)
             # first, zero out any previously accumulated gradients, then
             # perform backpropagation, and then update model parameters
@@ -173,6 +183,9 @@ def train(model, lossFunc, optimizer, trainLoader, testLoader):
             for (i, (x, y)) in enumerate(testLoader):
                 # send the input to the device
                 (x, y) = (x.to(DEVICE), y.to(DEVICE))
+                y = y.transpose(2, 3)
+                y = y.transpose(1, 2)
+                y = y.double()
                 # make the predictions and calculate the validation loss
                 pred = model(x)
                 totalTestLoss += lossFunc(pred, y)
@@ -185,7 +198,7 @@ def train(model, lossFunc, optimizer, trainLoader, testLoader):
         H["test_loss"].append(avgTestLoss.cpu().detach().numpy())
         # print the model training and validation information
         if e % 5 == 0:
-            torch.save(model.state_dict(), os.path.join(WEIGHTS_PATH, f"test_E{e:03d}.pt"),)
+            torch.save(model.state_dict(), os.path.join(WEIGHTS_PATH, f"test_E{e:03d}.pt"), )
         print("[INFO] EPOCH: {}/{}".format(e + 1, NUM_EPOCHS))
         print("Train loss: {:.6f}, Test loss: {:.4f}".format(
             avgTrainLoss, avgTestLoss))
@@ -194,24 +207,25 @@ def train(model, lossFunc, optimizer, trainLoader, testLoader):
     print("[INFO] total time taken to train the model: {:.2f}s".format(
         endTime - startTime))
 
-    save_stats(model.state_dict(), os.path.join(WEIGHTS_PATH, "test_E25.pt"), H, os.path.join(STAT_PATH, "loss.png"))
+    save_stats(model.state_dict(), os.path.join(WEIGHTS_PATH, "test_E25.pt"), H, STAT_PATH)
 
 
 def save_stats(model_params, weights_path, losses, fig_path):
     torch.save(model_params, weights_path)
 
-    with open(os.path.join(fig_path, "losses_dict"), 'w') as f:
-        json.dump(losses, f)
+    #with open(os.path.join(fig_path, "losses_dict"), 'w') as f:
+    #    json.dump(losses, f)
 
     plt.plot(losses["train_loss"], label='train_loss')
     plt.plot(losses["test_loss"], label='test_loss')
     plt.ylabel('BCEWithLogitsLoss')
     plt.legend()
 
-    plt.savefig(fig_path)
+    plt.savefig(os.path.join(fig_path,"losses.png"))
+
 
 def test_model():
-    #load model
+    # load model
     model = smp.Unet(
         encoder_name="resnet34",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
@@ -225,34 +239,35 @@ def test_model():
     checkpoint = torch.load(f"{WEIGHTS_PATH}/test.pt")
     model.load_state_dict(checkpoint)
 
-    #load data
+    # load data
     data_loader, _ = load_data(test_split_size=TEST_SPLIT)
-    #create masks using model
+    # create masks using model
     with torch.no_grad():
         # set the model in evaluation mode
         model.eval()
         # loop over the validation set
-        for (i, (x,_)) in enumerate(data_loader):
+        for (i, (x, _)) in enumerate(data_loader):
             # send the input to the device
             print(i)
             x = x.to(DEVICE)
             print("x: ", x.shape)
             # make the predictions and calculate the validation loss
             pred = model(x)
-            print("pred: ",pred.shape)
+            print("pred: ", pred.shape)
             masks = torch.concat((masks, pred))
             print("masks: ", masks.shape)
 
-    #storing masks
+    # storing masks
     for i in range(len(masks)):
         name = f"fish_{i}.png"
 
-        predMask = np.asarray(masks[i].cpu()).transpose(1,2,0)
+        predMask = np.asarray(masks[i].cpu()).transpose(1, 2, 0)
         predMask = (predMask) * 255
         predMask = predMask.astype(np.uint8)
         print("predMask: ", predMask.shape)
         image = to_PIL_Image(predMask.squeeze())
         image.save(os.path.join(pred_mask_path, name))
+
 
 def main():
     trainLoader, testLoader = load_data(TEST_SPLIT)
@@ -261,7 +276,7 @@ def main():
         encoder_name="resnet34",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
         in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        classes=3,  # model output channels (number of classes in your dataset)
+        classes=OUTPUT_CLASSES,  # model output channels (number of classes in your dataset)
     ).float().to(DEVICE)
 
     lossFunc = BCEWithLogitsLoss()
@@ -269,96 +284,88 @@ def main():
 
     train(model, lossFunc, opt, trainLoader, testLoader)
 
-def load_class_labels():
-    encoding = {
-        "boots": 1,
-        "hair": 2
-    }
-    default_encoding = 0
-    out_channels = len(encoding) + 1
+
+def create_mapping_function(encoding):
+    out_channels = len(encoding)
 
     df = pd.read_csv("C:/Dev/Smart_Data/Clothing_Segmentation/archive/class_dict.csv")
-    df.iloc[0,0] = "background"
+    df.iloc[0, 0] = "background"
     df = df.set_index('class_name')
-    df["int_encoding"] = 0
-    df["one_hot_encoding"] = 0
-    df["rgb"] = 0
-    #df["one_hot_encoding"] = df["one_hot_encoding"].astype(object)
 
-    # using dict here since it is much simpler
-    df_as_dict = df.transpose().to_dict()
+    mapping = - np.ones((256, 256, 256), dtype=int)
 
-    for x in df_as_dict:
-        int_code = default_encoding
-        if x in encoding:
-            int_code = encoding[x]
+    for enc in encoding:
+        r = df.loc[enc]["r"]
+        g = df.loc[enc]["g"]
+        b = df.loc[enc]["b"]
+        mapping[r][g][b] = encoding.get(enc)
+    func = lambda rgb: np.eye(1, out_channels, mapping[rgb[0]][rgb[1]][rgb[2]], dtype=np.byte)
+    vec_func = np.vectorize(func, signature='(c)->(d)')
 
-        one_hot = np.zeros(out_channels, dtype=int)
-        one_hot[int_code] = 1
-        df_as_dict[x]["int_encoding"] = int_code
-        df_as_dict[x]["one_hot_encoding"] = one_hot
-
-        rgb = np.array([df_as_dict[x]["r"],df_as_dict[x]["g"],df_as_dict[x]["b"]],dtype=int)
-        df_as_dict[x]["rgb"] = rgb
-
-    df = pandas.DataFrame.from_dict(df_as_dict).transpose()
-    return df_as_dict
+    return vec_func
 
 
-def create_new_masks():
+
+def create_new_masks(path):
+    encoding = {
+        "blazer": 0,
+        "blouse": 1,
+        "bodysuit": 2,
+        "cardigan": 3,
+        "coat": 4,
+        "dress": 5,
+        "hoodie": 6,
+        "jacket": 7,
+        "jeans": 8,
+        "jumper": 9,
+        "leggings": 10,
+        "pants": 11,
+        "shirt": 12,
+        "shorts": 13,
+        "skirt": 14,
+        "suit": 15,
+        "sweater": 16,
+        "sweatshirt": 17,
+        "t-shirt": 18,
+        "tights": 19,
+        "top": 20,
+        "vest": 21
+    }
+    out_channels = len(encoding)
+
     data_loader = load_masks_only()
-    df_as_dict = load_class_labels()
-    print(df_as_dict)
+    one_hot_encoding_func = create_mapping_function(encoding)
+    name = 1 ### Yes name is an int
     for (i, mask) in enumerate(data_loader):
-        mask = np.asarray((mask*255),dtype=int).transpose(0,2,3,1)
-        new_mask = np.zeros(mask.shape)
-        #for label in df_as_dict:
-        label = "hair"
-        print(label)
-        one_hot = np.asarray(df_as_dict[label]["one_hot_encoding"],dtype=int)
-        rgb = np.asarray(df_as_dict[label]["rgb"],dtype=int)
+        start_time = time.time()
+        print(f"Starting transformation of batch {i} of {len(data_loader)}")
+        mask = np.asarray((mask * 255), dtype=int).transpose(0, 2, 3, 1)
+        new_masks = one_hot_encoding_func(mask)
+        time_for_step = time.time() - start_time
+        print(f"The transformation took {time_for_step}")
+        print(f"Storing the images at: {path}")
+        for single_mask in new_masks:
+            np.save(file=os.path.join(path, f"{name:04d}"), arr=single_mask)
+            name += 1
 
-        func = lambda x: one_hot if (np.array_equal(x, rgb)) else np.zeros(one_hot.shape)
-        vfunc = np.vectorize(func, signature='(c)->(d)')
-        new_mask += vfunc(mask)
-        print(new_mask.shape)
 
-        image0 = new_mask[0]*255
-        image1 = new_mask[1] * 255
-        image2 = new_mask[2] * 255
-        image3 = new_mask[3] * 255
-
-        print(image0.shape)
-        print(type(image0))
-        pil_img = Image.fromarray(np.uint8(image0))
-        pil_img.show()
-
-        pil_img = Image.fromarray(np.uint8(image1))
-        pil_img.show()
-
-        pil_img = Image.fromarray(np.uint8(image2))
-        pil_img.show()
-
-        pil_img = Image.fromarray(np.uint8(image3))
-        pil_img.show()
+def create_img():
+    for i in range(50):
+        x = np.load(f"C:/Dev/Smart_Data/new_masks/test01/{i+1:04d}.npy")
+        im = Image.fromarray(np.uint8(x*255))
+        im.show()
 
 
 def test():
-    arr = np.array([[[1,2],[1,2],[1,3],[1,2]],
-                    [[1,2],[1,2],[1,3],[1,2]],
-                   [[1,2],[1,2],[1,3],[1,2]]])
-    new_mask = np.array([0,1,5])
-    ref = np.array([1,3])
-    func = lambda x: new_mask if (np.array_equal(x, ref)) else np.zeros(new_mask.shape)
-    #func = lambda mask: mask*2
-    vf = np.vectorize(func,signature='(c)->(d)')
-    print(arr.shape)
-    print("-------------")
-    arr=vf(arr)
-    print(arr)
+    df = pd.read_csv("C:/Dev/Smart_Data/Clothing_Segmentation/archive/class_dict.csv")
+    df.iloc[0, 0] = "background"
+    df = df.set_index('class_name')
+    print(df)
+
 
 if __name__ == "__main__":
-    #main()
-    #test_model()
-    #load_class_labels()
-    create_new_masks()
+    main()
+    # test_model()
+    # test()
+    # create_new_masks("C:/Dev/Smart_Data/new_masks/test01")
+    #create_img()
