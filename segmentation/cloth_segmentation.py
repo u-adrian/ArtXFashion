@@ -1,3 +1,5 @@
+import argparse
+import json
 import os
 import time
 from pathlib import Path
@@ -8,87 +10,29 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from tqdm import tqdm
-from torch.utils.data import DataLoader
-from imutils import paths
-from sklearn.model_selection import train_test_split
 from torchvision import transforms
 import matplotlib.pyplot as plt
 from PIL import Image
-import albumentations as album
-
-from segmentation.datasets.segmentation_ds import SegmentationDataset
 
 from segmentation_models_pytorch.losses import DiceLoss
 
-NUM_EPOCHS = 31
-OUTPUT_CLASSES = 1
-INIT_LR = 0.001
-BATCH_SIZE = 32
-TEST_SPLIT = 0.2
-IMAGE_DATASET_PATH = "C:/Dev/Smart_Data/Clothing_Segmentation/archive/images"
-OLD_MASK_DATASET_PATH = "C:/Dev/Smart_Data/Clothing_Segmentation/archive/labels/pixel_level_labels_colored"
-MASK_DATASET_PATH = "C:/Dev/Smart_Data/new_masks/test03"
-WEIGHTS_PATH = "C:/Dev/Smart_Data/Network_Weights"
-STAT_PATH = "C:/Dev/Smart_Data/Network_Weights/Stat"
-INPUT_IMAGE_HEIGHT = 256*2
-INPUT_IMAGE_WIDTH = 128*2
+from segmentation.data_loading import load_data
+
+CONFIG_PATH = ""
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PIN_MEMORY = True if DEVICE == "cuda" else False
 
 
-# define transformations
-def load_data(test_split_size, input_image_height, input_image_width):
-    imagePaths = sorted(list(paths.list_images(IMAGE_DATASET_PATH)))
-    maskPaths = sorted(list(paths.list_images(MASK_DATASET_PATH)))
-    # partition the data into training and testing splits using 85% of
-    # the data for training and the remaining 15% for testing
-    split = train_test_split(imagePaths, maskPaths, test_size=test_split_size, random_state=42)
-    # unpack the data split
-    (trainImages, testImages) = split[:2]
-    (trainMasks, testMasks) = split[2:]
+def train_loop(args, model, lossFunc, optimizer, trainLoader, testLoader):
+    weights_path = args["WEIGHTS_PATH"]
+    num_epochs = args["NUM_EPOCHS"]
+    stat_path = args["STAT_PATH"]
 
-    transform_mask_image = album.Compose([album.Resize(height=input_image_height, width=input_image_width),
-                                          album.RandomResizedCrop(height=input_image_height, width=input_image_width,scale=(0.95,0.95)),
-                                          album.HorizontalFlip(p=0.5),
-                                          album.Rotate(p=1.0, limit=45),
-                                          album.Resize(height=input_image_height, width=input_image_width)])
-
-    color_transformation = transforms.Compose([transforms.ToPILImage(),
-                                               transforms.ColorJitter(brightness=.5, hue=.3),
-                                               transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))])
-
-    color_transformation2 = transforms.Compose([transforms.ToPILImage(),
-                                               transforms.ColorJitter(brightness=.2, hue=.1)])
-
-    transform_mask_image_test = album.Compose([album.Resize(height=input_image_height, width=input_image_width)])
-
-    # create the train and test datasets
-    trainDS = SegmentationDataset(imagePaths=trainImages, maskPaths=trainMasks,
-                                  transform_image_mask=transform_mask_image, color_transformation=color_transformation2)
-
-
-    testDS = SegmentationDataset(imagePaths=testImages, maskPaths=testMasks,
-                                 transform_image_mask=transform_mask_image_test, color_transformation=None)
-
-    print(f"[INFO] found {len(trainDS)} examples in the training set...")
-    print(f"[INFO] found {len(testDS)} examples in the test set...")
-
-    # create the training and test data loaders
-    trainLoader = DataLoader(trainDS, shuffle=True, batch_size=BATCH_SIZE,
-                             pin_memory=PIN_MEMORY, num_workers=0)
-
-    testLoader = DataLoader(testDS, shuffle=False, batch_size=BATCH_SIZE,
-                            pin_memory=PIN_MEMORY, num_workers=0)
-
-    return trainLoader, testLoader
-
-
-def train(model, lossFunc, optimizer, trainLoader, testLoader):
     H = {"train_loss": [], "test_loss": []}
     # loop over epochs
     print("[INFO] training the network...")
     startTime = time.time()
-    for e in tqdm(range(NUM_EPOCHS)):
+    for e in tqdm(range(num_epochs)):
         if e == 60:
             print("ONLY ONCE")
 
@@ -134,8 +78,8 @@ def train(model, lossFunc, optimizer, trainLoader, testLoader):
         H["test_loss"].append(avgTestLoss.cpu().detach().numpy())
         # print the model training and validation information
         if e % 5 == 0:
-            torch.save(model.state_dict(), os.path.join(WEIGHTS_PATH, f"test_E{e:03d}.pt"), )
-        print("[INFO] EPOCH: {}/{}".format(e + 1, NUM_EPOCHS))
+            torch.save(model.state_dict(), os.path.join(weights_path, f"test_E{e:03d}.pt"), )
+        print("[INFO] EPOCH: {}/{}".format(e + 1, num_epochs))
         print("Train loss: {:.6f}, Test loss: {:.4f}".format(
             avgTrainLoss, avgTestLoss))
     # display the total time needed to perform the training
@@ -143,14 +87,11 @@ def train(model, lossFunc, optimizer, trainLoader, testLoader):
     print("[INFO] total time taken to train the model: {:.2f}s".format(
         endTime - startTime))
 
-    save_stats(model.state_dict(), os.path.join(WEIGHTS_PATH, "test_E45.pt"), H, STAT_PATH)
+    save_stats(model.state_dict(), os.path.join(weights_path, "test_E45.pt"), H, stat_path)
 
 
 def save_stats(model_params, weights_path, losses, fig_path):
     torch.save(model_params, weights_path)
-
-    #with open(os.path.join(fig_path, "losses_dict"), 'w') as f:
-    #    json.dump(losses, f)
 
     plt.plot(losses["train_loss"], label='train_loss')
     plt.plot(losses["test_loss"], label='test_loss')
@@ -159,88 +100,117 @@ def save_stats(model_params, weights_path, losses, fig_path):
 
     plt.savefig(os.path.join(fig_path,"losses.png"))
 
-def test_model():
+
+def test_model(args, epoch):
+    weights_path = args["WEIGHTS_PATH"]
+    output_classes = args["OUTPUT_CLASSES"]
+    test_split = args["TEST_SPLIT"]
+    input_image_height = args["INPUT_IMAGE_HEIGHT"]
+    input_image_width = args["INPUT_IMAGE_WIDTH"]
+    batch_size = args["BATCH_SIZE"]
+    image_dataset_path = args["IMAGE_DATASET_PATH"]
+    mask_dataset_path = args["MASK_DATASET_PATH"]
+
     # load model
     model = smp.Unet(
         encoder_name="efficientnet-b3",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
         in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        classes=OUTPUT_CLASSES,  # model output channels (number of classes in your dataset)
+        classes=output_classes,  # model output channels (number of classes in your dataset)
     ).float().to(DEVICE)
+
+    to_PIL = transforms.ToPILImage()
 
     pred_mask_path = "C:/Dev/Smart_Data/pred_mask"
     masks = torch.empty(0).to(DEVICE)
-    to_PIL_Image = transforms.ToPILImage()
-    checkpoint = torch.load(f"{WEIGHTS_PATH}/test_E020.pt")
+    checkpoint = torch.load(f"{weights_path}/test_E{epoch:03d}.pt")
     model.load_state_dict(checkpoint)
 
     # load data
-    data_loader, test_loader = load_data(test_split_size=TEST_SPLIT, input_image_height=INPUT_IMAGE_HEIGHT, input_image_width=INPUT_IMAGE_WIDTH)
+    train_loader, test_loader = load_data(test_split, input_image_height=input_image_height,
+                                        input_image_width=input_image_width,
+                                        batch_size=batch_size, image_dataset_path=image_dataset_path,
+                                        mask_dataset_path=mask_dataset_path)
     # create masks using model
     with torch.no_grad():
         # set the model in evaluation mode
         model.eval()
         # loop over the validation set
-        for (i, (x, _)) in enumerate(test_loader):
-            # send the input to the device
-            print(i)
+        for (b, (x, y)) in enumerate(test_loader):
             x = x.to(DEVICE)
-            print("x: ", x.shape)
-            # make the predictions and calculate the validation loss
-            pred = torch.sigmoid(model(x))
-            print("pred: ", pred.shape)
-            masks = torch.concat((masks, pred))
-            print("masks: ", masks.shape)
-            if i > 5:
-                break;
+            pred = torch.sigmoid(model(x)).cpu()
+            for i in range(x.shape[0]):
+                folder = f"img_{i:04d}"
 
-    # storing masks
-    #for i in range(len(masks)):
-    for i in range(5):
-        folder = f"img_{i:04d}"
+                image_folder = os.path.join(pred_mask_path, folder)
+                Path(image_folder).mkdir(parents=True, exist_ok=True)
 
-        predMask = np.asarray(masks[i].cpu()).transpose(1, 2, 0)
-        predMask = predMask * 255
-        predMask = predMask.astype(np.uint8)
+                to_PIL(x[i]).save(os.path.join(image_folder, "ref_image.png"))
+                print(pred.shape)
+                pred_i = pred[i]
 
-        path_folder = os.path.join(pred_mask_path, folder)
-        Path(path_folder).mkdir(parents=True, exist_ok=True)
-        for single_image in range(predMask.shape[2]):
-            #img2 = Image.fromarray(single_image)
-            #img2.show()
-            img = predMask.T[single_image].T / 255
-            #print("Uniques: ", np.unique(img))
-            img = (img>0.5)*255
-            img = Image.fromarray(np.uint8(img))
-
-            name = f"img_channel{single_image}.png"
-
-            img.save(os.path.join(path_folder, name))
+                for channel in range(pred_i.shape[0]):
+                    img = pred_i[channel]
+                    img = (img > 0.5)*255
+                    img_int = img.type(torch.uint8)
+                    img_2 = to_PIL(img_int)
+                    img_2.show()
 
 
-def main():
-    trainLoader, testLoader = load_data(TEST_SPLIT, input_image_height=256, input_image_width=128)
+                    name = f"img_channel_{channel:03d}.png"
+
+                    img_2.save(os.path.join(image_folder, name))
+
+                    to_PIL(y[i][channel]).save(os.path.join(image_folder, f"ref_mask_{channel:03d}.png"))
+
+
+            if i > 1:
+                break
+
+
+def train(args):
+    print(args)
+    output_classes = args["OUTPUT_CLASSES"]
+    test_split = args["TEST_SPLIT"]
+    input_image_height = args["INPUT_IMAGE_HEIGHT"]
+    input_image_width = args["INPUT_IMAGE_WIDTH"]
+    init_lr = args["INIT_LR"]
+    batch_size = args["BATCH_SIZE"]
+    image_dataset_path = args["IMAGE_DATASET_PATH"]
+    mask_dataset_path = args["MASK_DATASET_PATH"]
+
+    trainLoader, testLoader = load_data(test_split, input_image_height=input_image_height, input_image_width=input_image_width,
+                                        batch_size=batch_size, image_dataset_path=image_dataset_path, mask_dataset_path=mask_dataset_path)
 
     model = smp.Unet(
         encoder_name="efficientnet-b3",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
         in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        classes=OUTPUT_CLASSES,  # model output channels (number of classes in your dataset)
+        classes=output_classes,  # model output channels (number of classes in your dataset)
     ).float().to(DEVICE)
 
     lossFunc = nn.BCEWithLogitsLoss()
-    #lossFunc = nn.L1Loss()
     dice_loss = DiceLoss("binary",from_logits=True)
-    opt = Adam(model.parameters(), lr=INIT_LR)
+    opt = Adam(model.parameters(), lr=init_lr)
 
-    train(model, dice_loss, opt, trainLoader, testLoader)
+    train_loop(args, model, dice_loss, opt, trainLoader, testLoader)
+
+
+def load_config(config_path):
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
+        return config
+
+
+def main(parser: argparse.ArgumentParser):
+    parser.add_argument("--config_path", type=str, default="C:/Dev/Smart_Data/ArtXFashion/segmentation/config.json")
+    config_path = parser.parse_args()
+    args = load_config(config_path=config_path.config_path)
+
+    #train(args)
+    test_model(args,20)
 
 
 if __name__ == "__main__":
-    # create_new_masks("C:/Dev/Smart_Data/new_masks/test_multi")
-    #main()
-    test_model()
-    # test()
-
-    # create_img()
-    # test_test()
+    main(argparse.ArgumentParser())

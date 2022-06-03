@@ -1,0 +1,14 @@
+{
+  "NUM_EPOCHS": 31,
+  "OUTPUT_CLASSES": 1,
+  "INIT_LR": 0.001,
+  "BATCH_SIZE": 8,
+  "TEST_SPLIT": 0.2,
+  "IMAGE_DATASET_PATH": "C:/Dev/Smart_Data/Clothing_Segmentation/archive/images",
+  "OLD_MASK_DATASET_PATH": "C:/Dev/Smart_Data/Clothing_Segmentation/archive/labels/pixel_level_labels_colored",
+  "MASK_DATASET_PATH": "C:/Dev/Smart_Data/new_masks/test03",
+  "WEIGHTS_PATH": "C:/Dev/Smart_Data/Network_Weights",
+  "STAT_PATH": "C:/Dev/Smart_Data/Network_Weights/Stat",
+  "INPUT_IMAGE_HEIGHT": 512,
+  "INPUT_IMAGE_WIDTH": 256
+}
