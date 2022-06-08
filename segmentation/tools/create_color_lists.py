@@ -70,7 +70,6 @@ def create_color_list_with_overlap(color_list: torch.Tensor):
 
 if __name__ == "__main__":
     labels_to_drop = [
-        "background",
         "accessories",
         "belt",
         "bracelet",
@@ -79,6 +78,7 @@ if __name__ == "__main__":
         "hair",
         "ring",
         "skin",
+        "socks",
         "sunglasses",
         "wallet",
         "watch"

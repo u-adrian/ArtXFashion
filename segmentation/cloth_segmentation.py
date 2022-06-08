@@ -417,8 +417,8 @@ def main(parser: argparse.ArgumentParser):
     args = load_config(config_path=config_path.config_path)
 
 
-    #train(args)
-    test_model2(args,25)
+    train(args)
+    #test_model2(args,25)
 
 
 if __name__ == "__main__":
