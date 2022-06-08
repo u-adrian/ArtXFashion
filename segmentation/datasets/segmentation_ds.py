@@ -4,8 +4,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from segmentation.test import create_marker_masks_for_batch, pixel_mask_for_batch, pixel_mask, create_marker_mask, \
-    extract_colors
+from segmentation.utils import pixel_mask, create_marker_mask
 
 
 class SegmentationDataset(Dataset):
