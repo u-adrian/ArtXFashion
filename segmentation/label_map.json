@@ -1,0 +1,59 @@
+background,69,6,90      background
+accessories,70,12,95    _NONE_
+bag,71,18,101           _NONE_
+belt,72,25,107          _NONE_
+blazer,72,30,112        Jacke, Oberteil,
+blouse,72,35,116        Hemd, Oberteil
+bodysuit,71,40,120      Oberteil
+boots,70,47,124         Schuhe
+bra,69,52,127           _NONE_
+bracelet,68,57,130      _NONE_
+cape,66,61,132          Oberteil
+cardigan,64,67,135      Jacke, Oberteil
+clogs,62,72,136         Schuhe
+coat,61,76,137          Mantel, Jacke, Oberteil
+dress,58,82,139         Kleid, Oberteil
+earrings,56,86,139      _NONE_
+flats,54,90,140         Schuhe
+glasses,52,94,141       _NONE_
+gloves,50,99,141        _NONE_
+hair,48,103,141         _NONE_
+hat,46,107,142          _NONE_
+heels,45,111,142        SCHUHE
+hoodie,43,116,142       Pullover, Oberteil
+intimate,41,120,142     _NONE_
+jacket,40,123,142       Jacke, Oberteil
+jeans,38,127,142        Kompliziert
+jumper,36,132,141       Kleid
+leggings,35,136,141     Hose
+loafers,34,139,141      Schuhe
+necklace,32,144,140     _None_
+panties,31,148,139      Hose
+pants,30,152,138        Hose
+pumps,30,155,137        Schuhe
+purse,30,160,135        _NONE_
+ring,32,164,133         _NONE_
+romper,34,167,132       Kleid
+sandals,37,171,129      Schuhe
+scarf,42,176,126        _NONE_
+shirt,47,179,123
+shoes,53,183,120        Schuhe
+shorts,59,186,117       Hose
+skin,68,190,112         _NONE_
+skirt,75,194,108        Kleid,Rock
+sneakers,83,197,103     Schuhe
+socks,94,201,97
+stockings,103,204,92
+suit,112,206,86         Anzug,Oberteil,Jacke
+sunglasses,121,209,81   _NONE_
+sweater,134,212,73      Pullover
+sweatshirt,144,214,67   Pullover
+swimwear,154,216,60     _NONE_
+t-shirt,165,218,53      T-shirt
+tie,178,221,44
+tights,189,222,38       Hose
+top,199,224,31
+vest,210,225,27
+wallet,223,227,24
+watch,233,228,25
+wedges,243,229,30       Schuhe

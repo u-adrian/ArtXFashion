@@ -8,9 +8,12 @@ from PIL import Image
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
-from segmentation.cloth_segmentation import OLD_MASK_DATASET_PATH, INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH, BATCH_SIZE, \
-    PIN_MEMORY
 from segmentation.datasets.mask_ds import MaskDataset
+
+OLD_MASK_DATASET_PATH = "C:/Dev/Smart_Data/Clothing_Segmentation/archive/labels/pixel_level_labels_colored"
+INPUT_IMAGE_HEIGHT = 820
+INPUT_IMAGE_WIDTH = 550
+BATCH_SIZE = 64
 
 
 def create_new_masks(path):
@@ -59,6 +62,74 @@ def create_new_masks(path):
         "hat": 2
     }
 
+    # Schuhe: 0
+    # Hose: 1
+    # Pullover: 2
+    encoding = {
+        "boots": 0,
+        "clogs": 0,
+        "flats": 0,
+        "heels": 0,
+        "loafers": 0,
+        "pumps": 0,
+        "sandals": 0,
+        "shoes": 0,
+        "sneakers": 0,
+        "wedges": 0,
+
+        "leggings": 1,
+        "panties": 1,
+        "pants": 1,
+        "shorts": 1,
+        "tights": 1,
+
+        "sweater": 2,
+        "sweatshirt": 2
+    }
+
+    encoding = {
+        "boots": 0,
+        "clogs": 0,
+        "flats": 0,
+        "heels": 0,
+        "loafers": 0,
+        "pumps": 0,
+        "sandals": 0,
+        "shoes": 0,
+        "sneakers": 0,
+        "wedges": 0,
+
+        "leggings": 1,
+        "panties": 1,
+        "pants": 1,
+        "shorts": 1,
+        "tights": 1,
+
+        "sweater": 2,
+        "sweatshirt": 2,
+        "hoodie": 2,
+
+        "blazer": 3,
+        "blouse": 4,
+        "bodysuit": 5,
+        "cape": 6,
+        "cardigan": 7,
+        "coat": 8,
+        "dress": 9,
+        "jacket": 10,
+        "jeans": 11,
+        "jumper": 12,
+        "romper": 13,
+        "shirt": 14,
+        "skirt": 15,
+        "socks": 16,
+        "stockings": 17,
+        "suit": 18,
+        "t-shirt": 19,
+        "top": 20,
+        "vest": 21
+    }
+
     data_loader = load_masks_only()
     one_hot_encoding_func = create_mapping_function(encoding)
     name = 1 ### Yes name is an int
@@ -71,10 +142,10 @@ def create_new_masks(path):
         print(f"The transformation took {time_for_step}")
         print(f"Storing the images at: {path}")
         for single_mask in new_masks:
-            #np.save(file=os.path.join(path, f"{name:04d}"), arr=single_mask)
+            np.save(file=os.path.join(path, f"{name:04d}"), arr=single_mask)
             #print(single_mask.squeeze().shape)
-            img = Image.fromarray(np.uint8(single_mask.squeeze()*255))
-            img.save(os.path.join(path, f"{name:04d}.png"))
+            #img = Image.fromarray(np.uint8(single_mask.squeeze()*255))
+            #img.save(os.path.join(path, f"{name:04d}.png"))
             name += 1
 
 
@@ -111,6 +182,9 @@ def load_masks_only():
 
     # create the training and test data loaders
     data_loader = DataLoader(ds, shuffle=False, batch_size=BATCH_SIZE,
-                             pin_memory=PIN_MEMORY, num_workers=0)
+                             pin_memory=True, num_workers=0)
 
     return data_loader
+
+if __name__ == "__main__":
+    create_new_masks("C:/Dev/Smart_Data/new_masks/all_test01")
