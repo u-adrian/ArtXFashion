@@ -36,34 +36,42 @@ def train(args):
                                          batch_size=batch_size, image_dataset_path=image_dataset_path,
                                          mask_dataset_path=mask_dataset_path, meta_data_path=meta_data_path)
 
-    model = smp.Unet(
-        encoder_name="efficientnet-b3",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-        encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
-        in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        classes=output_classes,  # model output channels (number of classes in your dataset)
-    ).float().to(DEVICE)
-
     model = smp.UnetPlusPlus(
-        encoder_name="efficientnet-b3",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_name="efficientnet-b7",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
         in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
         classes=output_classes,  # model output channels (number of classes in your dataset)
     ).float().to(DEVICE)
 
+    model = smp.DeepLabV3(
+        encoder_name="resnet101",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
+        in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+        classes=output_classes,  # model output channels (number of classes in your dataset)
+    ).float().to(DEVICE)
 
-    lossFunc = nn.BCEWithLogitsLoss()
+    model = smp.Unet(
+        encoder_name="resnet101",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
+        in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+        classes=output_classes,  # model output channels (number of classes in your dataset)
+    ).float().to(DEVICE)
+
+    loss_func = nn.BCEWithLogitsLoss()
     dice_loss = DiceLoss("binary", from_logits=True)
     opt = Adam(model.parameters(), lr=init_lr)
     #opt = RMSprop(model.parameters(), lr=init_lr)
 
     def my_loss(pred, label):
-        return (dice_loss(pred, label) + lossFunc(pred, label)) / 2
+        alpha = 0.5
+        return alpha * dice_loss(pred, label) + (1-alpha) * loss_func(pred, label)
 
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer=opt, step_size=step_size, gamma=gamma, verbose=True)
 
     train_loop_for_marker(args, model, my_loss, opt, trainLoader, testLoader, scheduler, loss_to_track=dice_loss)
 
-def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, trainLoader, testLoader, scheduler, loss_to_track = None):
+
+def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, train_loader, test_loader, scheduler, loss_to_track=None):
     weights_path = args["WEIGHTS_PATH"]
     num_epochs = args["NUM_EPOCHS"]
     stat_path = args["STAT_PATH"]
@@ -75,21 +83,28 @@ def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, trainLoader,
     history = {"train_loss": [], "test_loss": [], "train_loss_additional": [], "test_loss_additional": []}
     # loop over epochs
     print("[INFO] training the network...")
-    startTime = time.time()
+    start_time = time.time()
+
+    avg_train_loss_se = 0
+    avg_test_loss_se = 0
+
+    avg_train_loss2_se = 0
+    avg_test_loss2_se = 0
+
     for e in tqdm(range(num_epochs)):
         # set the model in training mode
         model.train()
         # initialize the total training and validation loss
-        totalTrainLoss = 0
-        totalTestLoss = 0
+        total_train_loss = 0
+        total_test_loss = 0
 
-        totalTrainLoss2 = 0
-        totalTestLoss2 = 0
+        total_train_loss2 = 0
+        total_test_loss2 = 0
 
         # loop over the training set
-        trainSteps = None
-        testSteps = None
-        for (i, (image, marker, y)) in enumerate(trainLoader):
+        train_steps = None
+        test_steps = None
+        for (i, (image, marker, y)) in enumerate(train_loader):
             image_and_marker = torch.cat((image, marker), dim=1)
             image_and_marker = image_and_marker.to(DEVICE)
             (image, y) = (image.to(DEVICE), y.to(DEVICE))
@@ -99,69 +114,89 @@ def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, trainLoader,
 
             with torch.no_grad():
                 loss2 = loss_to_track(pred, y.type(torch.float))
-                totalTrainLoss2 += loss2
+                total_train_loss2 += loss2
             # first, zero out any previously accumulated gradients, then
             # perform backpropagation, and then update model parameters
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             # add the loss to the total training loss so far
-            totalTrainLoss += loss
-            trainSteps = i
+            total_train_loss += loss
+            train_steps = i
         # switch off autograd
         with torch.no_grad():
             # set the model in evaluation mode
             model.eval()
             # loop over the validation set
-            for (i, (image, marker, y)) in enumerate(testLoader):
+            for (i, (image, marker, y)) in enumerate(test_loader):
                 image_and_marker = torch.cat((image, marker), dim=1)
                 image_and_marker = image_and_marker.to(DEVICE)
                 (image, y) = (image.to(DEVICE), y.to(DEVICE))
                 # make the predictions and calculate the validation loss
                 pred = model(image_and_marker)
-                totalTestLoss += loss_func_to_opt(pred, y.type(torch.float))
+                total_test_loss += loss_func_to_opt(pred, y.type(torch.float))
                 with torch.no_grad():
                     loss2 = loss_to_track(pred, y.type(torch.float))
-                    totalTestLoss2 += loss2
-                testSteps = i
+                    total_test_loss2 += loss2
+                test_steps = i
         # calculate the average training and validation loss
-        avgTrainLoss = totalTrainLoss / trainSteps
-        avgTestLoss = totalTestLoss / testSteps
+        avg_train_loss = total_train_loss / train_steps
+        avg_test_loss = total_test_loss / test_steps
 
-        avgTrainLoss2 = totalTrainLoss2 / trainSteps
-        avgTestLoss2 = totalTestLoss2 / testSteps
+        avg_train_loss2 = total_train_loss2 / train_steps
+        avg_test_loss2 = total_test_loss2 / test_steps
 
-        if avgTestLoss < best_loss:
+        avg_train_loss_se += avg_train_loss / 10
+        avg_test_loss_se += avg_test_loss / 10
+
+        avg_train_loss2_se += avg_train_loss2 / 10
+        avg_test_loss2_se += avg_test_loss2 / 10
+
+        if avg_test_loss < best_loss:
             print("New best model found!")
-            best_loss = avgTestLoss
+            best_loss = avg_test_loss
             best_model = model.state_dict()
             best_epoch = e
         # update our training history
-        history["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
-        history["test_loss"].append(avgTestLoss.cpu().detach().numpy())
-        history["train_loss_additional"].append(avgTrainLoss2.cpu().detach().numpy())
-        history["test_loss_additional"].append(avgTestLoss2.cpu().detach().numpy())
+        #history["train_loss"].append(avg_train_loss.cpu().detach().numpy())
+        #history["test_loss"].append(avg_test_loss.cpu().detach().numpy())
+        #history["train_loss_additional"].append(avg_train_loss2.cpu().detach().numpy())
+        #history["test_loss_additional"].append(avg_test_loss2.cpu().detach().numpy())
         # print the model training and validation information
         if e % 5 == 0:
             torch.save(model.state_dict(), os.path.join(weights_path, f"test_E{e:03d}.pt"), )
-        print("[INFO] EPOCH: {}/{}".format(e + 1, num_epochs))
-        print("Train loss: {:.6f}, Test loss: {:.4f}".format(
-            avgTrainLoss, avgTestLoss))
-        print("Train loss 2: {:.6f}, Test loss 2: {:.4f}".format(
-            avgTrainLoss2, avgTestLoss2))
+
+        if e % 10 == 0:
+            # One Super epoch done:
+            history["train_loss"].append(avg_train_loss_se.cpu().detach().numpy())
+            history["test_loss"].append(avg_test_loss_se.cpu().detach().numpy())
+            history["train_loss_additional"].append(avg_train_loss2_se.cpu().detach().numpy())
+            history["test_loss_additional"].append(avg_test_loss2_se.cpu().detach().numpy())
+
+            print("[INFO] EPOCH: {}/{}".format(e + 1, num_epochs))
+            print("Train loss: {:.6f}, Test loss: {:.4f}".format(
+                avg_train_loss_se, avg_test_loss_se))
+            print("Train loss 2: {:.6f}, Test loss 2: {:.4f}".format(
+                avg_train_loss2_se, avg_test_loss2_se))
+
+            avg_train_loss_se = 0
+            avg_test_loss_se = 0
+
+            avg_train_loss2_se = 0
+            avg_test_loss2_se = 0
 
         print(f"Best Epoch: {best_epoch}")
         scheduler.step()
     # display the total time needed to perform the training
-    endTime = time.time()
+    end_time = time.time()
     print("[INFO] total time taken to train the model: {:.2f}s".format(
-        endTime - startTime))
+        end_time - start_time))
 
     save_stats(model.state_dict(), os.path.join(weights_path, "test_E45.pt"), history, stat_path)
     torch.save(best_model, os.path.join(weights_path, f"best_model_E_{best_epoch}.pt"))
 
 
-def train_loop(args, model, lossFunc, optimizer, trainLoader, testLoader, scheduler):
+def train_loop(args, model, loss_func, optimizer, train_loader, test_loader, scheduler):
     weights_path = args["WEIGHTS_PATH"]
     num_epochs = args["NUM_EPOCHS"]
     stat_path = args["STAT_PATH"]
@@ -169,59 +204,59 @@ def train_loop(args, model, lossFunc, optimizer, trainLoader, testLoader, schedu
     history = {"train_loss": [], "test_loss": []}
     # loop over epochs
     print("[INFO] training the network...")
-    startTime = time.time()
+    start_time = time.time()
     for e in tqdm(range(num_epochs)):
         # set the model in training mode
         model.train()
         # initialize the total training and validation loss
-        totalTrainLoss = 0
-        totalTestLoss = 0
+        total_train_loss = 0
+        total_test_loss = 0
         # loop over the training set
-        trainSteps = None
-        testSteps = None
-        for (i, (x, y)) in enumerate(trainLoader):
+        train_steps = None
+        test_steps = None
+        for (i, (x, y)) in enumerate(train_loader):
             # send the input to the device
             (x, y) = (x.to(DEVICE), y.to(DEVICE))
 
             pred = model(x)
-            loss = lossFunc(pred, y)
+            loss = loss_func(pred, y)
             # first, zero out any previously accumulated gradients, then
             # perform backpropagation, and then update model parameters
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             # add the loss to the total training loss so far
-            totalTrainLoss += loss
-            trainSteps = i
+            total_train_loss += loss
+            train_steps = i
         # switch off autograd
         with torch.no_grad():
             # set the model in evaluation mode
             model.eval()
             # loop over the validation set
-            for (i, (x, y)) in enumerate(testLoader):
+            for (i, (x, y)) in enumerate(test_loader):
                 # send the input to the device
                 (x, y) = (x.to(DEVICE), y.to(DEVICE))
                 # make the predictions and calculate the validation loss
                 pred = model(x)
-                totalTestLoss += lossFunc(pred, y)
-                testSteps = i
+                total_test_loss += loss_func(pred, y)
+                test_steps = i
         # calculate the average training and validation loss
-        avgTrainLoss = totalTrainLoss / trainSteps
-        avgTestLoss = totalTestLoss / testSteps
+        avg_train_loss = total_train_loss / train_steps
+        avg_test_loss = total_test_loss / test_steps
         # update our training history
-        history["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
-        history["test_loss"].append(avgTestLoss.cpu().detach().numpy())
+        history["train_loss"].append(avg_train_loss.cpu().detach().numpy())
+        history["test_loss"].append(avg_test_loss.cpu().detach().numpy())
         # print the model training and validation information
         if e % 5 == 0:
             torch.save(model.state_dict(), os.path.join(weights_path, f"test_E{e:03d}.pt"), )
         print("[INFO] EPOCH: {}/{}".format(e + 1, num_epochs))
         print("Train loss: {:.6f}, Test loss: {:.4f}".format(
-            avgTrainLoss, avgTestLoss))
+            avg_train_loss, avg_test_loss))
 
         scheduler.step()
     # display the total time needed to perform the training
-    endTime = time.time()
+    end_time = time.time()
     print("[INFO] total time taken to train the model: {:.2f}s".format(
-        endTime - startTime))
+        end_time - start_time))
 
     save_stats(model.state_dict(), os.path.join(weights_path, "test_E45.pt"), history, stat_path)
