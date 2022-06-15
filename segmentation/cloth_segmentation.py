@@ -1,8 +1,7 @@
 import argparse
 
-from segmentation.train import train
-from segmentation.utils import load_config
-from segmentation.test import test_model2
+from train import train
+from utils import load_config
 
 
 def main(parser: argparse.ArgumentParser):
