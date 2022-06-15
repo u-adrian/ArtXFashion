@@ -15,37 +15,65 @@ import torch.nn
 
 
 class NCTS:
-    def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self._init_hyperparams()
-        self._init_model()
-
-    def _init_hyperparams(self):
-        """Die Hyperparameter im Folgenden sind für den Prototypen fix (Für welche es Sinn macht einstellbar zu sein, wird noch erprobt)"""
-
-        # Auswahl der Schichten und der Gewichte
-        # Content Layer mal rausgenommen 'conv4_2':0.2,
-        self.style_layers_and_style_weights = {
+    def __init__(
+        self,
+        style_layers_and_style_weights={
             "conv1_1": 1.0,
             "conv2_1": 0.75,
             "conv3_1": 0.2,
             "conv4_1": 0.2,
             "conv5_1": 0.2,
-        }
+        },
+        content_layer="conv4_2",
+        content_fashion_weight=0.5,
+        content_art_weight=10,
+        style_art_weight=1e6,
+        steps=2000,
+        learning_rate=0.03,
+        show_every=100,
+    ):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.show_every = show_every
+        self._init_hyperparams(
+            style_layers_and_style_weights,
+            content_layer,
+            content_fashion_weight,
+            content_art_weight,
+            style_art_weight,
+            steps,
+            learning_rate,
+        )
+        self._init_model()
+
+    def _init_hyperparams(
+        self,
+        style_layers_and_style_weights,
+        content_layer,
+        content_fashion_weight,
+        content_art_weight,
+        style_art_weight,
+        steps,
+        learning_rate,
+    ):
+        """Die Hyperparameter im Folgenden sind für den Prototypen fix (Für welche es Sinn macht einstellbar zu sein, wird noch erprobt)"""
+
+        # Auswahl der Schichten und der Gewichte
+        # Content Layer mal rausgenommen 'conv4_2':0.2,
+        self.style_layers_and_style_weights = style_layers_and_style_weights
 
         # Auwahl der Content Layer
-        self.content_layer = "conv4_2"
+        self.content_layer = content_layer
         self.style_layers = list(self.style_layers_and_style_weights.keys())
         self.selected_layers = self.style_layers.__add__([self.content_layer])
 
         # Festlegung der alphas und des beta
-        self.content_fashion_weight = 0.5  # alpha_fashion
-        self.content_art_weight = 10  # alpha_art
-        self.style_art_weight = 1e6  # beta
+        self.content_fashion_weight = content_fashion_weight  # alpha_fashion
+        self.content_art_weight = content_art_weight  # alpha_art
+        self.style_art_weight = style_art_weight  # beta
 
         # Festlegen der Optimierungsschritte und Learning Rate
-        self.steps = 2000
-        self.learning_rate = 0.03
+        self.steps = steps
+        self.learning_rate = learning_rate
 
     def _init_model(self):
         # laden der Feature Extraktion Schichten des VGG19, den Klassifizier Part benötigen wir nicht
@@ -66,7 +94,6 @@ class NCTS:
         style_grams,
     ):
         # transformed_clothing alle "show_every" Schritte anzeigen
-        show_every = 100
         optimizer = optim.Adam([transformed_clothing], lr=self.learning_rate)
 
         for ii in range(1, self.steps + 1):
@@ -120,7 +147,7 @@ class NCTS:
             total_loss.backward()
             optimizer.step()
 
-            if ii % show_every == 0:
+            if ii % self.show_every == 0:
                 print("Total loss: ", total_loss.item())
                 plt.imshow(im_convert(transformed_clothing))
                 plt.show()
@@ -129,9 +156,9 @@ class NCTS:
 
     def perform_ncts(
         self,
-        art_image_path,
-        fashion_image_path,
-        fashion_mask_path,
+        art_image_path="mock_data/images_art/Katze.png",
+        fashion_image_path="mock_data/images_fashion/0744.jpg",
+        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
     ):
         fashion_image_vgg = load_image(fashion_image_path, for_vgg=True)
         fashion_image_np = im_convert(fashion_image_vgg)
@@ -203,5 +230,24 @@ class NCTS:
 
 
 if __name__ == "__main__":
-    ai_designer = NCTS()
-    image = ai_designer.perform_ncts()
+    ai_designer = NCTS(
+        style_layers_and_style_weights={
+            "conv1_1": 1.0,
+            "conv2_1": 0.75,
+            "conv3_1": 0.2,
+            "conv4_1": 0.2,
+            "conv5_1": 0.2,
+        },
+        content_layer="conv4_2",
+        content_fashion_weight=0.5,
+        content_art_weight=10,
+        style_art_weight=1e6,
+        steps=2000,
+        learning_rate=0.03,
+        show_every=1,
+    )
+    image = ai_designer.perform_ncts(
+        art_image_path="mock_data/images_art/Katze.png",
+        fashion_image_path="mock_data/images_fashion/0744.jpg",
+        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
+    )

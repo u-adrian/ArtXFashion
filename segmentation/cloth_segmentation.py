@@ -1,8 +1,7 @@
 import argparse
 
-from segmentation.train import train
-from segmentation.utils import load_config
-from segmentation.test import test_model2
+from train import train
+from utils import load_config
 
 
 def main(parser: argparse.ArgumentParser):
@@ -11,7 +10,7 @@ def main(parser: argparse.ArgumentParser):
     args = load_config(config_path=config_path.config_path)
 
     train(args)
-    #test_model2(args, 25)
+    #test_model2(args, 100)
 
 
 if __name__ == "__main__":

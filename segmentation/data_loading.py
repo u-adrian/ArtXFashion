@@ -1,6 +1,6 @@
 import albumentations as album
 
-from segmentation.datasets.segmentation_ds import SegmentationDataset, SegmentationDataset_with_Marker
+from datasets.segmentation_ds import SegmentationDataset, SegmentationDatasetWithMarker
 from torch.utils.data import DataLoader
 from imutils import paths
 from sklearn.model_selection import train_test_split
@@ -36,11 +36,11 @@ def load_data(test_split_size, input_image_height, input_image_width, image_data
     transform_mask_image_test = album.Compose([album.Resize(height=input_image_height, width=input_image_width)])
 
     # create the train and test datasets
-    trainDS = SegmentationDataset(imagePaths=trainImages, maskPaths=trainMasks,
+    trainDS = SegmentationDataset(image_paths=trainImages, mask_paths=trainMasks,
                                   transform_image_mask=transform_mask_image, color_transformation=color_transformation2)
 
 
-    testDS = SegmentationDataset(imagePaths=testImages, maskPaths=testMasks,
+    testDS = SegmentationDataset(image_paths=testImages, mask_paths=testMasks,
                                  transform_image_mask=transform_mask_image_test, color_transformation=None)
 
     print(f"[INFO] found {len(trainDS)} examples in the training set...")
@@ -89,12 +89,12 @@ def load_data2(test_split_size, input_image_height, input_image_width, image_dat
     transform_mask_image_test = transforms.Compose([transforms.Resize(size=(input_image_height,input_image_width))])
 
     # create the train and test datasets
-    trainDS = SegmentationDataset_with_Marker(imagePaths=trainImages, maskPaths=trainMasks, meta_data_path=train_metadata,
-                                              transform=transform_mask_image_test, color_transformation=color_transformation)
+    trainDS = SegmentationDatasetWithMarker(image_paths=trainImages, mask_paths=trainMasks, meta_data_path=train_metadata,
+                                            transform=transform_mask_image_test, color_transformation=color_transformation)
 
-    testDS = SegmentationDataset_with_Marker(imagePaths=testImages, maskPaths=testMasks, meta_data_path=test_metadata,
-                                             transform=transform_mask_image_test, color_transformation=None,
-                                             randomization=False)
+    testDS = SegmentationDatasetWithMarker(image_paths=testImages, mask_paths=testMasks, meta_data_path=test_metadata,
+                                           transform=transform_mask_image_test, color_transformation=None,
+                                           randomization=False)
 
     print(f"[INFO] found {len(trainDS)} examples in the training set...")
     print(f"[INFO] found {len(testDS)} examples in the test set...")

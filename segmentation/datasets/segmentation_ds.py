@@ -8,11 +8,11 @@ from segmentation.utils import pixel_mask, create_marker_mask
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, imagePaths, maskPaths, transform_image_mask, color_transformation, is_image=True):
+    def __init__(self, image_paths, mask_paths, transform_image_mask, color_transformation, is_image=True):
         # store the image and mask filepaths, and augmentation
         # transforms
-        self.imagePaths = imagePaths
-        self.maskPaths = maskPaths
+        self.imagePaths = image_paths
+        self.maskPaths = mask_paths
         self.transform_image_mask = transform_image_mask
         self.color_transformation = color_transformation
         self.is_image = is_image
@@ -46,13 +46,13 @@ class SegmentationDataset(Dataset):
         return image, mask
 
 
-class SegmentationDataset_with_Marker(Dataset):
-    def __init__(self, imagePaths, maskPaths, meta_data_path, transform, color_transformation, randomization=True):
+class SegmentationDatasetWithMarker(Dataset):
+    def __init__(self, image_paths, mask_paths, meta_data_path, transform, color_transformation, randomization=True):
         # store the image and mask filepaths, and augmentation
         # transforms
         self.meta_data_path = meta_data_path
-        self.imagePaths = imagePaths
-        self.maskPaths = maskPaths
+        self.imagePaths = image_paths
+        self.maskPaths = mask_paths
         self.color_transformation = color_transformation
         self.transform = transform
         self.randomization = randomization
@@ -63,7 +63,6 @@ class SegmentationDataset_with_Marker(Dataset):
 
     def __getitem__(self, idx):
         to_tensor = transforms.ToTensor()
-        to_pil = transforms.ToPILImage()
 
         colors = torch.load(self.meta_data_path[idx]) * 255
 
@@ -84,22 +83,14 @@ class SegmentationDataset_with_Marker(Dataset):
             random_number = int(torch.rand(size=[1]).item() * color_list.shape[0])
         color = color_list[random_number]
 
-        binary_mask = pixel_mask(rgb_mask, color)   # on GPU
+        binary_mask = pixel_mask(rgb_mask, color)
         binary_mask = self.transform(binary_mask[:][None])
 
-        marker = create_marker_mask(binary_mask).squeeze()[:][None]     # on GPU
+        marker = create_marker_mask(binary_mask).squeeze()[:][None]
 
         # check to see if we are applying any transformations
-
         if self.color_transformation is not None:
             image = self.color_transformation(image)
             image = to_tensor(image)
-
-        #image_and_mask = torch.cat((image, marker), dim=0)
-        #print("IMAGE:", image.shape)
-        #print("MARKER:", marker.shape)
-        #to_pil(rgb_mask).show()
-        #to_pil(binary_mask*255).show()
-        #to_pil(marker * 255).show()
 
         return image, marker, binary_mask
