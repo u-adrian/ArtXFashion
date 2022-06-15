@@ -133,3 +133,6 @@ data/
 
 # Jetbrains
 .idea/
+.DS_Store
+.DS_Store
+neural_content_style_transfer/.DS_Store
