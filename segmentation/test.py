@@ -5,8 +5,8 @@ import segmentation_models_pytorch as smp
 import torch
 from torchvision import transforms
 
-from segmentation.data_loading import load_data2, load_data
-from segmentation.globals import DEVICE
+from data_loading import load_data2, load_data
+from globals import DEVICE
 
 
 def test_model2(args, epoch):

@@ -1,6 +1,6 @@
 import albumentations as album
 
-from segmentation.datasets.segmentation_ds import SegmentationDataset, SegmentationDatasetWithMarker
+from datasets.segmentation_ds import SegmentationDataset, SegmentationDatasetWithMarker
 from torch.utils.data import DataLoader
 from imutils import paths
 from sklearn.model_selection import train_test_split

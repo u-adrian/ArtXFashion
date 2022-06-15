@@ -9,9 +9,9 @@ from torch import nn as nn
 from torch.optim import Adam
 from tqdm import tqdm
 
-from segmentation.globals import DEVICE
-from segmentation.utils import save_stats
-from segmentation.data_loading import load_data2
+from globals import DEVICE
+from utils import save_stats
+from data_loading import load_data2
 
 
 def train(args):
