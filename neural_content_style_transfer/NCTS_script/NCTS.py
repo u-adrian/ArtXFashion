@@ -31,9 +31,11 @@ class NCTS:
         steps=2000,
         learning_rate=0.03,
         show_every=100,
+        white_canvas=True
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.show_every = show_every
+        self.white_canvas = white_canvas
         self._init_hyperparams(
             style_layers_and_style_weights,
             content_layer,
@@ -42,6 +44,7 @@ class NCTS:
             style_art_weight,
             steps,
             learning_rate,
+
         )
         self._init_model()
 
@@ -179,14 +182,19 @@ class NCTS:
         art_image = load_image(art_image_path, shape=mbr_shape[:2], for_vgg=True).to(
             self.device
         )
-        cropped_selected_clothing_vgg = (
+        if self.white_canvas == True:
+            fashion_bounding_box_to_be_transformed = (
+                vgg_ready(w_i_ncts).float().to(self.device)
+            )
+        else:
+            fashion_bounding_box_to_be_transformed = (
             vgg_ready(cropped_selected_clothing).float().to(self.device)
         )
 
         # Feature Maps des Art und des Fashion Bildes speichern
         art_image_features = get_features(art_image, self.vgg, self.selected_layers)
         fashion_image_features = get_features(
-            cropped_selected_clothing_vgg, self.vgg, self.selected_layers
+            fashion_bounding_box_to_be_transformed, self.vgg, self.selected_layers
         )
 
         # Gram Matrizen für jede Schicht bei Input des Art Bildes berechnen
