@@ -129,9 +129,9 @@ class NCTS:
 
     def perform_ncts(
         self,
-        art_image_path="mock_data/images_art/Katze.png",
-        fashion_image_path="mock_data/images_fashion/0744.jpg",
-        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
+        art_image_path,
+        fashion_image_path,
+        fashion_mask_path,
     ):
         fashion_image_vgg = load_image(fashion_image_path, for_vgg=True)
         fashion_image_np = im_convert(fashion_image_vgg)
