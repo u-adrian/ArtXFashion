@@ -31,11 +31,13 @@ class NCTS:
         steps=2000,
         learning_rate=0.03,
         show_every=100,
-        white_canvas=True
+        fashion_image_feature_is_white = False,
+        white_canvas = True
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.show_every = show_every
         self.white_canvas = white_canvas
+        self.fashion_image_feature_is_white = fashion_image_feature_is_white
         self._init_hyperparams(
             style_layers_and_style_weights,
             content_layer,
@@ -182,19 +184,19 @@ class NCTS:
         art_image = load_image(art_image_path, shape=mbr_shape[:2], for_vgg=True).to(
             self.device
         )
-        if self.white_canvas == True:
-            fashion_bounding_box_to_be_transformed = (
-                vgg_ready(w_i_ncts).float().to(self.device)
+        if self.fashion_image_feature_is_white == True:
+            fashion_image_feature_origin = (
+            vgg_ready(w_i_ncts).float().to(self.device)
             )
         else:
-            fashion_bounding_box_to_be_transformed = (
+            fashion_image_feature_origin = (
             vgg_ready(cropped_selected_clothing).float().to(self.device)
         )
 
         # Feature Maps des Art und des Fashion Bildes speichern
         art_image_features = get_features(art_image, self.vgg, self.selected_layers)
         fashion_image_features = get_features(
-            fashion_bounding_box_to_be_transformed, self.vgg, self.selected_layers
+            fashion_image_feature_origin, self.vgg, self.selected_layers
         )
 
         # Gram Matrizen für jede Schicht bei Input des Art Bildes berechnen
@@ -204,13 +206,22 @@ class NCTS:
         }
 
         # Erstellung unseres target transformed_fashion_image welches iterativ basierend auf dem fashion_image transformiert wird
-        transformed_clothing = (
-            vgg_ready(cropped_fashion_mask)
-            .clone()
-            .float()
-            .to(self.device)
-            .requires_grad_(True)
-        )
+        if self.white_canvas == True:
+          transformed_clothing = (
+              vgg_ready(w_i_ncts)
+              .clone()
+              .float()
+              .to(self.device)
+              .requires_grad_(True)
+          )
+        else:
+          transformed_clothing = (
+                vgg_ready(cropped_fashion_mask)
+                .clone()
+                .float()
+                .to(self.device)
+                .requires_grad_(True)
+          )
 
         final_transformed_clothing = self._optimize(
             transformed_clothing,
