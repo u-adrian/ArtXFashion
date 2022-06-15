@@ -157,7 +157,7 @@ class NCTS:
 
             if (ii % self.show_every) == 0:
               transformed_clothing_storage.append(transformed_clothing)
-              print("done")
+              
                 
 
         return transformed_clothing_storage
@@ -247,7 +247,7 @@ class NCTS:
           resulting_fashion_image = fashion_image_np.copy()
           resulting_fashion_image[b_i_ncts > 0] = b_i_ncts[b_i_ncts > 0]
           resulting_fashion_image_storage.append(resulting_fashion_image)
-          print("yep")
+          
     
         return resulting_fashion_image_storage
 
