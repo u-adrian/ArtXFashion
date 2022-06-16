@@ -32,8 +32,8 @@ class NCTS:
         steps=2000,
         learning_rate=0.03,
         show_every=100,
-        fashion_image_feature_is_white = False,
-        white_canvas = True
+        fashion_image_feature_is_white=False,
+        white_canvas=True,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.show_every = show_every
@@ -47,7 +47,6 @@ class NCTS:
             style_art_weight,
             steps,
             learning_rate,
-
         )
         self._init_model()
 
@@ -102,6 +101,8 @@ class NCTS:
         # transformed_clothing alle "show_every" Schritte anzeigen
         optimizer = optim.Adam([transformed_clothing], lr=self.learning_rate)
 
+        transformed_clothing_storage = []
+
         for ii in range(1, self.steps + 1):
             transformed_fashion_image_features = get_features(
                 transformed_clothing, self.vgg, self.selected_layers
@@ -153,12 +154,8 @@ class NCTS:
             total_loss.backward()
             optimizer.step()
 
-            transformed_clothing_storage = []
-
             if (ii % self.show_every) == 0:
-              transformed_clothing_storage.append(transformed_clothing)
-              
-                
+                transformed_clothing_storage.append(transformed_clothing)
 
         return transformed_clothing_storage
 
@@ -188,13 +185,11 @@ class NCTS:
             self.device
         )
         if self.fashion_image_feature_is_white == True:
-            fashion_image_feature_origin = (
-            vgg_ready(w_i_ncts).float().to(self.device)
-            )
+            fashion_image_feature_origin = vgg_ready(w_i_ncts).float().to(self.device)
         else:
             fashion_image_feature_origin = (
-            vgg_ready(cropped_selected_clothing).float().to(self.device)
-        )
+                vgg_ready(cropped_selected_clothing).float().to(self.device)
+            )
 
         # Feature Maps des Art und des Fashion Bildes speichern
         art_image_features = get_features(art_image, self.vgg, self.selected_layers)
@@ -210,21 +205,17 @@ class NCTS:
 
         # Erstellung unseres target transformed_fashion_image welches iterativ basierend auf dem fashion_image transformiert wird
         if self.white_canvas == True:
-          transformed_clothing = (
-              vgg_ready(w_i_ncts)
-              .clone()
-              .float()
-              .to(self.device)
-              .requires_grad_(True)
-          )
+            transformed_clothing = (
+                vgg_ready(w_i_ncts).clone().float().to(self.device).requires_grad_(True)
+            )
         else:
-          transformed_clothing = (
+            transformed_clothing = (
                 vgg_ready(cropped_fashion_mask)
                 .clone()
                 .float()
                 .to(self.device)
                 .requires_grad_(True)
-          )
+            )
 
         final_transformed_clothing_storage = self._optimize(
             transformed_clothing,
@@ -236,19 +227,18 @@ class NCTS:
         # 4. Creating a blank image with the same shape as the original fashion_image/fashion_mask (widht and heigts) and locating w_i_ncts with the white_rectangle_size_pixel_positions in the blank image
         # -> it is called b_i_ncts
         # (How the rest of the image which is not w_i_ncts looks like does not matter, because in the next step this b_i_ncts is multiplied with the fashion_mask anyway)
-        
-        resulting_fashion_image_storage =[]
+
+        resulting_fashion_image_storage = []
 
         for final_transformed_clothing in final_transformed_clothing_storage:
-          b_i_ncts = np.zeros(fashion_image_np.shape)
-          b_i_ncts[mbr_location] = (
-              im_convert(final_transformed_clothing) * cropped_fashion_mask
-          )
-          resulting_fashion_image = fashion_image_np.copy()
-          resulting_fashion_image[b_i_ncts > 0] = b_i_ncts[b_i_ncts > 0]
-          resulting_fashion_image_storage.append(resulting_fashion_image)
-          
-    
+            b_i_ncts = np.zeros(fashion_image_np.shape)
+            b_i_ncts[mbr_location] = (
+                im_convert(final_transformed_clothing) * cropped_fashion_mask
+            )
+            resulting_fashion_image = fashion_image_np.copy()
+            resulting_fashion_image[b_i_ncts > 0] = b_i_ncts[b_i_ncts > 0]
+            resulting_fashion_image_storage.append(resulting_fashion_image)
+
         return resulting_fashion_image_storage
 
 
