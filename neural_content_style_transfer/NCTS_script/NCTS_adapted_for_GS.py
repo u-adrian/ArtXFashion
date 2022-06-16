@@ -18,68 +18,42 @@ import torch.nn
 class NCTS:
     def __init__(
         self,
-        style_layers_and_style_weights={
-            "conv1_1": 1.0,
-            "conv2_1": 0.75,
-            "conv3_1": 0.2,
-            "conv4_1": 0.2,
-            "conv5_1": 0.2,
-        },
-        content_layer="conv4_2",
-        content_fashion_weight=0.5,
-        content_art_weight=10,
-        style_art_weight=1e6,
-        steps=2000,
-        learning_rate=0.03,
-        show_every=100,
-        fashion_image_feature_is_white = False,
-        white_canvas = True
+        param_grid
     ):
+        self.param_grid = param_grid
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.show_every = show_every
-        self.white_canvas = white_canvas
-        self.fashion_image_feature_is_white = fashion_image_feature_is_white
+        self.show_every = param_grid["show_every"]
+        self.white_canvas = param_grid["white_canvas"]
+        self.fashion_image_feature_is_white = param_grid["fashion_image_feature_is_white"]
         self._init_hyperparams(
-            style_layers_and_style_weights,
-            content_layer,
-            content_fashion_weight,
-            content_art_weight,
-            style_art_weight,
-            steps,
-            learning_rate,
+            param_grid
 
         )
         self._init_model()
 
     def _init_hyperparams(
         self,
-        style_layers_and_style_weights,
-        content_layer,
-        content_fashion_weight,
-        content_art_weight,
-        style_art_weight,
-        steps,
-        learning_rate,
+        param_grid
     ):
         """Die Hyperparameter im Folgenden sind für den Prototypen fix (Für welche es Sinn macht einstellbar zu sein, wird noch erprobt)"""
 
         # Auswahl der Schichten und der Gewichte
         # Content Layer mal rausgenommen 'conv4_2':0.2,
-        self.style_layers_and_style_weights = style_layers_and_style_weights
+        self.style_layers_and_style_weights = param_grid["style_layers_and_style_weights"]
 
         # Auwahl der Content Layer
-        self.content_layer = content_layer
-        self.style_layers = list(self.style_layers_and_style_weights.keys())
+        self.content_layer = param_grid["content_layer"]
+        self.style_layers = list(self.param_grid["style_layers_and_style_weights"].keys())
         self.selected_layers = self.style_layers.__add__([self.content_layer])
 
         # Festlegung der alphas und des beta
-        self.content_fashion_weight = content_fashion_weight  # alpha_fashion
-        self.content_art_weight = content_art_weight  # alpha_art
-        self.style_art_weight = style_art_weight  # beta
+        self.content_fashion_weight = param_grid["content_fashion_weight"]  # alpha_fashion
+        self.content_art_weight = param_grid["content_art_weight"]  # alpha_art
+        self.style_art_weight = param_grid["style_art_weight"]  # beta
 
         # Festlegen der Optimierungsschritte und Learning Rate
-        self.steps = steps
-        self.learning_rate = learning_rate
+        self.steps = param_grid["steps"]
+        self.learning_rate = param_grid["learning_rate"]
 
     def _init_model(self):
         # laden der Feature Extraktion Schichten des VGG19, den Klassifizier Part benötigen wir nicht
@@ -101,7 +75,7 @@ class NCTS:
     ):
         # transformed_clothing alle "show_every" Schritte anzeigen
         optimizer = optim.Adam([transformed_clothing], lr=self.learning_rate)
-
+        transformed_clothing_storage = []
         for ii in range(1, self.steps + 1):
             transformed_fashion_image_features = get_features(
                 transformed_clothing, self.vgg, self.selected_layers
@@ -153,7 +127,7 @@ class NCTS:
             total_loss.backward()
             optimizer.step()
 
-            transformed_clothing_storage = []
+            
 
             if (ii % self.show_every) == 0:
               transformed_clothing_storage.append(transformed_clothing)
@@ -225,7 +199,7 @@ class NCTS:
                 .to(self.device)
                 .requires_grad_(True)
           )
-
+        
         final_transformed_clothing_storage = self._optimize(
             transformed_clothing,
             fashion_image_features,
@@ -237,7 +211,7 @@ class NCTS:
         # -> it is called b_i_ncts
         # (How the rest of the image which is not w_i_ncts looks like does not matter, because in the next step this b_i_ncts is multiplied with the fashion_mask anyway)
         
-        resulting_fashion_image_storage =[]
+        resulting_fashion_image_storage = []
 
         for final_transformed_clothing in final_transformed_clothing_storage:
           b_i_ncts = np.zeros(fashion_image_np.shape)
