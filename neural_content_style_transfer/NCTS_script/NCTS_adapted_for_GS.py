@@ -25,6 +25,9 @@ class NCTS:
         self.show_every = param_grid["show_every"]
         self.white_canvas = param_grid["white_canvas"]
         self.fashion_image_feature_is_white = param_grid["fashion_image_feature_is_white"]
+        self.art_image_path = param_grid["art_image_path"]
+        self.fashion_image_path = param_grid["fashion_image_path"]
+        self.fashion_mask_path = param_grid["fashion_mask_path"]
         self._init_hyperparams(
             param_grid
 
@@ -135,15 +138,12 @@ class NCTS:
         return transformed_clothing_storage
 
     def perform_ncts(
-        self,
-        art_image_path="mock_data/images_art/Katze.png",
-        fashion_image_path="mock_data/images_fashion/0744.jpg",
-        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
+        self
     ):
-        fashion_image_vgg = load_image(fashion_image_path, for_vgg=True)
+        fashion_image_vgg = load_image(self.fashion_image_path, for_vgg=True)
         fashion_image_np = im_convert(fashion_image_vgg)
         fashion_mask = load_image(
-            fashion_mask_path, shape=fashion_image_vgg.shape[2:], for_vgg=False
+            self.fashion_mask_path, shape=fashion_image_vgg.shape[2:], for_vgg=False
         )
         selected_clothing = fashion_image_np * fashion_mask
 
@@ -156,7 +156,7 @@ class NCTS:
         cropped_fashion_mask = fashion_mask[mbr_location]
         cropped_selected_clothing = selected_clothing[mbr_location]
 
-        art_image = load_image(art_image_path, shape=mbr_shape[:2], for_vgg=True).to(
+        art_image = load_image(self.art_image_path, shape=mbr_shape[:2], for_vgg=True).to(
             self.device
         )
         if self.fashion_image_feature_is_white == True:
@@ -217,25 +217,5 @@ class NCTS:
         return resulting_fashion_image_storage
 
 
-if __name__ == "__main__":
-    ai_designer = NCTS(
-        style_layers_and_style_weights={
-            "conv1_1": 1.0,
-            "conv2_1": 0.75,
-            "conv3_1": 0.2,
-            "conv4_1": 0.2,
-            "conv5_1": 0.2,
-        },
-        content_layer="conv4_2",
-        content_fashion_weight=0.5,
-        content_art_weight=10,
-        style_art_weight=1e6,
-        steps=2000,
-        learning_rate=0.03,
-        show_every=1,
-    )
-    image = ai_designer.perform_ncts(
-        art_image_path="mock_data/images_art/Katze.png",
-        fashion_image_path="mock_data/images_fashion/0744.jpg",
-        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
-    )
+
+    
