@@ -50,9 +50,36 @@ def train(args):
         classes=output_classes,  # model output channels (number of classes in your dataset)
     ).float().to(DEVICE)
 
+    class exp_model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.m1 = smp.Unet(
+                encoder_name="inceptionv4",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights="imagenet+background",  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=4,  # model output channels (number of classes in your dataset)
+            ).float().to(DEVICE)
+
+            self.m2 = smp.Unet(
+                encoder_name="inceptionv4",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights="imagenet+background",  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=8,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=output_classes,  # model output channels (number of classes in your dataset)
+            ).float().to(DEVICE)
+
+        def forward(self, input):
+            m1_out = self.m1(input)
+            #print("M1:", m1_out.shape)
+            #print("INPUT:", input.shape)
+            concat = torch.cat((m1_out, input), dim=1)
+            #print("CONCAT:", concat.shape)
+            m2_out = self.m2(concat)
+            #print("M2:",m2_out.shape)
+            return m2_out
+
     model = smp.Unet(
-        encoder_name="resnet101",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-        encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
+        encoder_name="inceptionv4",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_weights="imagenet+background",  # use `imagenet` pre-trained weights for encoder initialization
         in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
         classes=output_classes,  # model output channels (number of classes in your dataset)
     ).float().to(DEVICE)
@@ -128,6 +155,7 @@ def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, train_loader
             # set the model in evaluation mode
             model.eval()
             # loop over the validation set
+
             for (i, (image, marker, y)) in enumerate(test_loader):
                 image_and_marker = torch.cat((image, marker), dim=1)
                 image_and_marker = image_and_marker.to(DEVICE)
@@ -135,9 +163,10 @@ def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, train_loader
                 # make the predictions and calculate the validation loss
                 pred = model(image_and_marker)
                 total_test_loss += loss_func_to_opt(pred, y.type(torch.float))
-                with torch.no_grad():
-                    loss2 = loss_to_track(pred, y.type(torch.float))
-                    total_test_loss2 += loss2
+
+                loss2 = loss_to_track(pred, y.type(torch.float))
+                total_test_loss2 += loss2
+
                 test_steps = i
         # calculate the average training and validation loss
         avg_train_loss = total_train_loss / train_steps
@@ -166,18 +195,20 @@ def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, train_loader
         if e % 5 == 0:
             torch.save(model.state_dict(), os.path.join(weights_path, f"test_E{e:03d}.pt"), )
 
-        if e % 10 == 0:
+        if e % 10 == 0 and e > 0:
             # One Super epoch done:
             history["train_loss"].append(avg_train_loss_se.cpu().detach().numpy())
             history["test_loss"].append(avg_test_loss_se.cpu().detach().numpy())
             history["train_loss_additional"].append(avg_train_loss2_se.cpu().detach().numpy())
             history["test_loss_additional"].append(avg_test_loss2_se.cpu().detach().numpy())
 
-            print("[INFO] EPOCH: {}/{}".format(e + 1, num_epochs))
+            print("[INFO] EPOCH: {}/{}".format(e, num_epochs))
             print("Train loss: {:.6f}, Test loss: {:.4f}".format(
                 avg_train_loss_se, avg_test_loss_se))
             print("Train loss 2: {:.6f}, Test loss 2: {:.4f}".format(
                 avg_train_loss2_se, avg_test_loss2_se))
+
+            save_stats(history, stat_path)
 
             avg_train_loss_se = 0
             avg_test_loss_se = 0
@@ -192,7 +223,7 @@ def train_loop_for_marker(args, model, loss_func_to_opt, optimizer, train_loader
     print("[INFO] total time taken to train the model: {:.2f}s".format(
         end_time - start_time))
 
-    save_stats(model.state_dict(), os.path.join(weights_path, "test_E45.pt"), history, stat_path)
+    save_stats(history, stat_path)
     torch.save(best_model, os.path.join(weights_path, f"best_model_E_{best_epoch}.pt"))
 
 

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import segmentation_models_pytorch as smp
 import torch
+from torch import nn
 from torchvision import transforms
 
 from data_loading import load_data2, load_data
@@ -21,12 +22,6 @@ def test_model2(args, epoch):
     meta_data_path = "C:/Dev/Smart_Data/Clothing_Segmentation/color_lists_reduced"
 
     # load model
-    model = smp.Unet(
-        encoder_name="efficientnet-b3",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-        encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
-        in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        classes=output_classes,  # model output channels (number of classes in your dataset)
-    ).float().to(DEVICE)
 
     model = smp.UnetPlusPlus(
         encoder_name="efficientnet-b7",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
@@ -42,12 +37,48 @@ def test_model2(args, epoch):
         classes=output_classes,  # model output channels (number of classes in your dataset)
     ).float().to(DEVICE)
 
+    model = smp.Unet(
+        encoder_name="inceptionv4",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_weights="imagenet+background",  # use `imagenet` pre-trained weights for encoder initialization
+        in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+        classes=output_classes,  # model output channels (number of classes in your dataset)
+    ).float().to(DEVICE)
+
+    class exp_model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.m1 = smp.Unet(
+                encoder_name="inceptionv4",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights="imagenet+background",  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=4,  # model output channels (number of classes in your dataset)
+            ).float().to(DEVICE)
+
+            self.m2 = smp.Unet(
+                encoder_name="inceptionv4",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights="imagenet+background",  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=8,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=output_classes,  # model output channels (number of classes in your dataset)
+            ).float().to(DEVICE)
+
+        def forward(self, input):
+            m1_out = self.m1(input)
+            # print("M1:", m1_out.shape)
+            # print("INPUT:", input.shape)
+            concat = torch.cat((m1_out, input), dim=1)
+            # print("CONCAT:", concat.shape)
+            m2_out = self.m2(concat)
+            # print("M2:",m2_out.shape)
+            return m2_out
+
+    #model = exp_model()
+
     to_PIL = transforms.ToPILImage()
 
     pred_mask_path = "C:/Dev/Smart_Data/pred_mask"
     masks = torch.empty(0).to(DEVICE)
-    #checkpoint = torch.load(f"{weights_path}/test_E{epoch:03d}.pt")
-    checkpoint = torch.load(f"{weights_path}/best_model_E_479_resnet101.pt")
+    checkpoint = torch.load(f"{weights_path}/test_E{epoch:03d}.pt")
+    #checkpoint = torch.load(f"{weights_path}/best_model_E_479_resnet101.pt")
     model.load_state_dict(checkpoint)
 
     # load data
