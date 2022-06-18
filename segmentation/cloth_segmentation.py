@@ -17,6 +17,8 @@ class SegmentationModel:
             in_channels=4,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
             classes=1,  # model output channels (number of classes in your dataset)
         ).float().to(self.device)
+        
+        self.model.load_state_dict(torch.load(self.model_path))
 
     def __create_marker_mask(self, x, y):
         marker_mask = torch.zeros((self.model_image_height,self.model_image_width)).squeeze()
