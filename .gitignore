@@ -136,3 +136,4 @@ data/
 .DS_Store
 .DS_Store
 neural_content_style_transfer/.DS_Store
+neural_content_style_transfer/grid_search_images/
