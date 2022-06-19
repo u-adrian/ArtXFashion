@@ -37,7 +37,7 @@ def load_data(test_split_size, input_image_height, input_image_width, image_data
 
     # create the train and test datasets
     trainDS = SegmentationDataset(image_paths=trainImages, mask_paths=trainMasks,
-                                  transform_image_mask=transform_mask_image, color_transformation=color_transformation2)
+                                  transform_image_mask=transform_mask_image, color_transformation=color_transformation)
 
 
     testDS = SegmentationDataset(image_paths=testImages, mask_paths=testMasks,

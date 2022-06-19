@@ -34,9 +34,8 @@ def create_marker_mask(binary_mask_tensor: torch.Tensor):
     return marker_mask.type(torch.uint8)
 
 
-def save_stats(model_params, weights_path, losses, fig_path):
-    torch.save(model_params, weights_path)
-
+def save_stats(losses, fig_path):
+    plt.clf()
     plt.plot(losses["train_loss"], label='train_loss')
     plt.plot(losses["test_loss"], label='test_loss')
     plt.plot(losses["train_loss_additional"], label='train_loss_additional')
@@ -45,6 +44,7 @@ def save_stats(model_params, weights_path, losses, fig_path):
     plt.legend()
 
     plt.savefig(os.path.join(fig_path, "losses.png"))
+    plt.close()
 
 
 def load_config(config_path):
