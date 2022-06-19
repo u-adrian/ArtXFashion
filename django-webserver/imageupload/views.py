@@ -119,7 +119,6 @@ class StyleTransferThread(Thread):
         )
         path_style = f"images/style/style-{token}.png"
         saved = plt.imsave(path_style, result)
-
         transfer.style_transfered = path_style
         transfer.save()
 
