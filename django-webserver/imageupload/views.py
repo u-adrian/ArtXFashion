@@ -123,7 +123,7 @@ class StyleTransferThread(Thread):
         style_pil = Image.fromarray(result, 'RGB')
         path_style = f"images/style/style-{token}.png"
         saved = style_pil.save(path_style) 
-
+        
         transfer.style_transfered = path_style
         transfer.save()
 
