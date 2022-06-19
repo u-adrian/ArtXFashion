@@ -12,6 +12,10 @@ from .forms import UploadFileForm, UploadImageForm
 from .models import testfile, Transfer
 # Imaginary function to handle an uploaded file.
 #from somewhere import handle_uploaded_file
+from .segmentation.cloth_segmentation import SegmentationModel
+
+
+from django.core.files.images import ImageFile
 
 
 
@@ -20,7 +24,6 @@ def handle_uploaded_file(upped_file, **kwargs):
     print('handling file function called')
 
     newtestfile = testfile(file_name=str(upped_file), file_image=upped_file)#, file_file=upped_file)
-
     newtestfile.save()
     #print(a)
 
@@ -63,6 +66,24 @@ def landing(request):
 
 
 
+
+def convert(image):
+    im = image
+    im.convert('RGB') # convert mode
+    #im.thumbnail(size) # resize image
+    thumb_io = BytesIO() # create a BytesIO object
+    im.save(thumb_io, 'JPEG', quality=85) # save image to BytesIO object
+    thumbnail = File(thumb_io, name=image.name) # create a django friendly File object
+
+
+
+
+from io import BytesIO
+from PIL import Image
+from django.core.files.images import ImageFile
+import requests
+
+
 def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
     print('handling file function called')
 
@@ -70,11 +91,35 @@ def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
     #newtestfile.save()
 
     newTransfer = Transfer(person_image=person_image, style_image=style_image, segment_start_x=x, segment_start_y=y)
+
+    model = SegmentationModel()
+
     token = newTransfer.token
     newTransfer.save()
     ## save to queue
 
+    pth = str(newTransfer.person_image)
+    segmented_pil = model.do_image_segmentation(pth, x, y)
+
+
+    #img_url = 'https://cdn.pixabay.com/photo/2021/08/25/20/42/field-6574455__340.jpg'
+
+    #res = Image.open(requests.get(img_url, stream=True).raw)
+    #filename = 'sample.jpeg'
+    #img_object= ImageFile(BytesIO(segmented_pil.fp.getvalue()), name=filename)
+
+    #django_image_field = img_object
+    path = f"images/segmentation/segmentation-{token}.png"
+    saved = segmented_pil.save(path) 
+
+    newTransfer.person_image_segmentation = path
+
+    newTransfer.save()
+
+
     return token
+
+
 
 
 def upload_transfer(request):
