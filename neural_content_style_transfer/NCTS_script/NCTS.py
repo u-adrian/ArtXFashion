@@ -17,6 +17,9 @@ import torch.nn
 class NCTS:
     def __init__(
         self,
+        art_image_path="mock_data/images_art/Katze.png",
+        fashion_image_path="mock_data/images_fashion/0744.jpg",
+        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
         style_layers_and_style_weights={
             "conv1_1": 1.0,
             "conv2_1": 0.75,
@@ -31,13 +34,16 @@ class NCTS:
         steps=2000,
         learning_rate=0.03,
         show_every=100,
-        fashion_image_feature_is_white = False,
-        white_canvas = True
+        fashion_image_feature_is_white=False,
+        white_canvas=True,
+        dev_mode=False,
     ):
+        self.art_image_path = art_image_path
+        self.fashion_image_path = fashion_image_path
+        self.fashion_mask_path = fashion_mask_path
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.show_every = show_every
-        self.white_canvas = white_canvas
-        self.fashion_image_feature_is_white = fashion_image_feature_is_white
+        self.dev_mode = dev_mode
         self._init_hyperparams(
             style_layers_and_style_weights,
             content_layer,
@@ -46,7 +52,8 @@ class NCTS:
             style_art_weight,
             steps,
             learning_rate,
-
+            fashion_image_feature_is_white,
+            white_canvas,
         )
         self._init_model()
 
@@ -59,6 +66,8 @@ class NCTS:
         style_art_weight,
         steps,
         learning_rate,
+        fashion_image_feature_is_white,
+        white_canvas,
     ):
         """Die Hyperparameter im Folgenden sind für den Prototypen fix (Für welche es Sinn macht einstellbar zu sein, wird noch erprobt)"""
 
@@ -79,6 +88,10 @@ class NCTS:
         # Festlegen der Optimierungsschritte und Learning Rate
         self.steps = steps
         self.learning_rate = learning_rate
+
+        #
+        self.white_canvas = white_canvas
+        self.fashion_image_feature_is_white = fashion_image_feature_is_white
 
     def _init_model(self):
         # laden der Feature Extraktion Schichten des VGG19, den Klassifizier Part benötigen wir nicht
@@ -152,23 +165,19 @@ class NCTS:
             total_loss.backward()
             optimizer.step()
 
-            if ii % self.show_every == 0:
-                print("Total loss: ", total_loss.item())
-                plt.imshow(im_convert(transformed_clothing))
-                plt.show()
+            if self.dev_mode:
+                if ii % self.show_every == 0:
+                    print("Total loss: ", total_loss.item())
+                    plt.imshow(im_convert(transformed_clothing))
+                    plt.show()
 
         return transformed_clothing
 
-    def perform_ncts(
-        self,
-        art_image_path="mock_data/images_art/Katze.png",
-        fashion_image_path="mock_data/images_fashion/0744.jpg",
-        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
-    ):
-        fashion_image_vgg = load_image(fashion_image_path, for_vgg=True)
+    def perform_ncts(self):
+        fashion_image_vgg = load_image(self.fashion_image_path, for_vgg=True)
         fashion_image_np = im_convert(fashion_image_vgg)
         fashion_mask = load_image(
-            fashion_mask_path, shape=fashion_image_vgg.shape[2:], for_vgg=False
+            self.fashion_mask_path, shape=fashion_image_vgg.shape[2:], for_vgg=False
         )
         selected_clothing = fashion_image_np * fashion_mask
 
@@ -181,17 +190,15 @@ class NCTS:
         cropped_fashion_mask = fashion_mask[mbr_location]
         cropped_selected_clothing = selected_clothing[mbr_location]
 
-        art_image = load_image(art_image_path, shape=mbr_shape[:2], for_vgg=True).to(
-            self.device
-        )
+        art_image = load_image(
+            self.art_image_path, shape=mbr_shape[:2], for_vgg=True
+        ).to(self.device)
         if self.fashion_image_feature_is_white == True:
-            fashion_image_feature_origin = (
-            vgg_ready(w_i_ncts).float().to(self.device)
-            )
+            fashion_image_feature_origin = vgg_ready(w_i_ncts).float().to(self.device)
         else:
             fashion_image_feature_origin = (
-            vgg_ready(cropped_selected_clothing).float().to(self.device)
-        )
+                vgg_ready(cropped_selected_clothing).float().to(self.device)
+            )
 
         # Feature Maps des Art und des Fashion Bildes speichern
         art_image_features = get_features(art_image, self.vgg, self.selected_layers)
@@ -207,21 +214,17 @@ class NCTS:
 
         # Erstellung unseres target transformed_fashion_image welches iterativ basierend auf dem fashion_image transformiert wird
         if self.white_canvas == True:
-          transformed_clothing = (
-              vgg_ready(w_i_ncts)
-              .clone()
-              .float()
-              .to(self.device)
-              .requires_grad_(True)
-          )
+            transformed_clothing = (
+                vgg_ready(w_i_ncts).clone().float().to(self.device).requires_grad_(True)
+            )
         else:
-          transformed_clothing = (
+            transformed_clothing = (
                 vgg_ready(cropped_fashion_mask)
                 .clone()
                 .float()
                 .to(self.device)
                 .requires_grad_(True)
-          )
+            )
 
         final_transformed_clothing = self._optimize(
             transformed_clothing,
@@ -241,15 +244,20 @@ class NCTS:
         resulting_fashion_image = fashion_image_np.copy()
         resulting_fashion_image[b_i_ncts > 0] = b_i_ncts[b_i_ncts > 0]
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-        ax1.imshow(fashion_image_np)
-        ax2.imshow(resulting_fashion_image)
+        if self.dev_mode:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+            ax1.imshow(fashion_image_np)
+            ax2.imshow(resulting_fashion_image)
+            plt.show()
 
         return resulting_fashion_image
 
 
 if __name__ == "__main__":
     ai_designer = NCTS(
+        art_image_path="mock_data/images_art/Katze.png",
+        fashion_image_path="mock_data/images_fashion/0744.jpg",
+        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
         style_layers_and_style_weights={
             "conv1_1": 1.0,
             "conv2_1": 0.75,
@@ -261,12 +269,11 @@ if __name__ == "__main__":
         content_fashion_weight=0.5,
         content_art_weight=10,
         style_art_weight=1e6,
-        steps=2000,
+        steps=10,
         learning_rate=0.03,
-        show_every=1,
+        show_every=11,
+        fashion_image_feature_is_white=False,
+        white_canvas=True,
+        dev_mode=True,
     )
-    image = ai_designer.perform_ncts(
-        art_image_path="mock_data/images_art/Katze.png",
-        fashion_image_path="mock_data/images_fashion/0744.jpg",
-        fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
-    )
+    image = ai_designer.perform_ncts()
