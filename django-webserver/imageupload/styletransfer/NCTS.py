@@ -27,14 +27,12 @@ class NCTS:
         content_fashion_weight=0.5,
         content_art_weight=10,
         style_art_weight=1e6,
-
-
         ###CHANGED
         steps=100,
         learning_rate=0.03,
         show_every=100,
-        fashion_image_feature_is_white = False,
-        white_canvas = True
+        fashion_image_feature_is_white=False,
+        white_canvas=True,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.show_every = show_every
@@ -48,7 +46,6 @@ class NCTS:
             style_art_weight,
             steps,
             learning_rate,
-
         )
         self._init_model()
 
@@ -154,8 +151,6 @@ class NCTS:
             total_loss.backward()
             optimizer.step()
 
-
-
         return transformed_clothing
 
     def perform_ncts(
@@ -164,11 +159,12 @@ class NCTS:
         fashion_image_path="mock_data/images_fashion/0744.jpg",
         fashion_mask_path="mock_data/images_tshirt_masks/0744.png",
     ):
-        fashion_image_vgg = load_image(fashion_image_path, for_vgg=True)
-        fashion_image_np = im_convert(fashion_image_vgg)
-        fashion_mask = load_image(
-            fashion_mask_path, shape=fashion_image_vgg.shape[2:], for_vgg=False
+        fashion_mask = load_image(fashion_mask_path, for_vgg=False)
+        fashion_image_vgg = load_image(
+            fashion_image_path, shape=fashion_mask.shape[2:], for_vgg=True
         )
+        fashion_image_np = im_convert(fashion_image_vgg)
+
         selected_clothing = fashion_image_np * fashion_mask
 
         # Creating a white image with dimension that can be calculated
@@ -184,13 +180,11 @@ class NCTS:
             self.device
         )
         if self.fashion_image_feature_is_white == True:
-            fashion_image_feature_origin = (
-            vgg_ready(w_i_ncts).float().to(self.device)
-            )
+            fashion_image_feature_origin = vgg_ready(w_i_ncts).float().to(self.device)
         else:
             fashion_image_feature_origin = (
-            vgg_ready(cropped_selected_clothing).float().to(self.device)
-        )
+                vgg_ready(cropped_selected_clothing).float().to(self.device)
+            )
 
         # Feature Maps des Art und des Fashion Bildes speichern
         art_image_features = get_features(art_image, self.vgg, self.selected_layers)
@@ -206,21 +200,17 @@ class NCTS:
 
         # Erstellung unseres target transformed_fashion_image welches iterativ basierend auf dem fashion_image transformiert wird
         if self.white_canvas == True:
-          transformed_clothing = (
-              vgg_ready(w_i_ncts)
-              .clone()
-              .float()
-              .to(self.device)
-              .requires_grad_(True)
-          )
+            transformed_clothing = (
+                vgg_ready(w_i_ncts).clone().float().to(self.device).requires_grad_(True)
+            )
         else:
-          transformed_clothing = (
+            transformed_clothing = (
                 vgg_ready(cropped_fashion_mask)
                 .clone()
                 .float()
                 .to(self.device)
                 .requires_grad_(True)
-          )
+            )
 
         final_transformed_clothing = self._optimize(
             transformed_clothing,
@@ -239,7 +229,6 @@ class NCTS:
 
         resulting_fashion_image = fashion_image_np.copy()
         resulting_fashion_image[b_i_ncts > 0] = b_i_ncts[b_i_ncts > 0]
-
 
         return resulting_fashion_image
 
