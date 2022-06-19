@@ -22,3 +22,6 @@ weights kopieren nach:
 
 ArtXFashion/django-webserver/imageupload/segmentation/
 
+
+
+Folder erstellen unter image
