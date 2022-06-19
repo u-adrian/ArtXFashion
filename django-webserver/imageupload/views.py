@@ -17,6 +17,11 @@ from .segmentation.cloth_segmentation import SegmentationModel
 
 from django.core.files.images import ImageFile
 
+from .styletransfer.NCTS import NCTS
+from django.apps import AppConfig
+from threading import Thread
+
+
 
 
 
@@ -84,6 +89,54 @@ from django.core.files.images import ImageFile
 import requests
 
 
+
+
+
+class StyleTransferThread(Thread):
+
+
+    def __init__(self, transfer):
+        super(StyleTransferThread, self).__init__()
+        self.transfer = transfer
+    def run(self):
+
+        transfer = self.transfer
+        print('Thread running')
+
+
+        token = transfer.token
+
+        x = transfer.segment_start_x
+        y = transfer.segment_start_y
+        model = SegmentationModel()
+        pth = str(transfer.person_image)
+        segmented_pil = model.do_image_segmentation(pth, x, y)
+        path = f"images/segmentation/segmentation-{token}.png"
+        saved = segmented_pil.save(path) 
+        transfer.person_image_segmentation = path
+        transfer.save()
+
+        print('semgentation saved')
+
+
+        result = self.do_style_transfer(transfer.person_image, transfer.style_image, transfer.person_image_segmentation)
+        style_pil = Image.fromarray(result, 'RGB')
+        path_style = f"images/style/style-{token}.png"
+        saved = style_pil.save(path_style) 
+
+        transfer.style_transfered = path_style
+        transfer.save()
+
+    def do_style_transfer(self, a_img, f_img, f_mask):
+
+        transfer_model = NCTS()
+        return transfer_model.perform_ncts(
+            art_image_path=a_img,
+            fashion_image_path=f_img,
+            fashion_mask_path=f_mask
+        )
+
+
 def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
     print('handling file function called')
 
@@ -92,14 +145,10 @@ def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
 
     newTransfer = Transfer(person_image=person_image, style_image=style_image, segment_start_x=x, segment_start_y=y)
 
-    model = SegmentationModel()
 
     token = newTransfer.token
     newTransfer.save()
     ## save to queue
-
-    pth = str(newTransfer.person_image)
-    segmented_pil = model.do_image_segmentation(pth, x, y)
 
 
     #img_url = 'https://cdn.pixabay.com/photo/2021/08/25/20/42/field-6574455__340.jpg'
@@ -109,13 +158,15 @@ def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
     #img_object= ImageFile(BytesIO(segmented_pil.fp.getvalue()), name=filename)
 
     #django_image_field = img_object
-    path = f"images/segmentation/segmentation-{token}.png"
-    saved = segmented_pil.save(path) 
 
-    newTransfer.person_image_segmentation = path
 
-    newTransfer.save()
+    thread = StyleTransferThread(newTransfer)
 
+
+    ### use .run() for debugging!!!
+    thread.start()
+    print('started')
+ 
 
     return token
 
