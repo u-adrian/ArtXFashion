@@ -45,5 +45,7 @@ class SegmentationModel:
 
             self.model.eval()
             segmentation = self.model(image_and_marker)
+            segmentation = torch.sigmoid(segmentation)
+            segmentation = (segmentation > 0.5).cpu()
 
             return segmentation
