@@ -61,7 +61,14 @@ class SegmentationModel:
         tensor = transform(image)
         tensor = tensor.unsqueeze(0)
         # Print the converted image tensor
-        return self.do_segmentation(tensor, x, y)
+        result =  self.do_segmentation(tensor, x, y)
+
+        to_pil = transforms.Compose(
+        [transforms.Resize([height, width]),
+        transforms.ToPILImage()]) 
+
+        return to_pil(result)
+
 
     def __create_marker_mask(self, x, y):
         marker_mask = torch.zeros((self.model_image_height,self.model_image_width)).squeeze()
@@ -92,8 +99,7 @@ class SegmentationModel:
 
             segmentation = torch.sigmoid(segmentation)
             #segmentation = ((segmentation > 0.5)*255)
-            segmentation[segmentation > .5] = 1
-            segmentation[segmentation <= .5] = 0
-            to_pil = transforms.ToPILImage()
+            segmentation[segmentation >= .5] = 1
+            segmentation[segmentation < .5] = 0
 
-            return to_pil(segmentation.squeeze(0))
+            return segmentation.squeeze(0)
