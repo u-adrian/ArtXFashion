@@ -16,3 +16,9 @@ einmal abbrechen dann
 
 dann wieder
 docker-compose up
+
+
+weights kopieren nach:
+
+ArtXFashion/django-webserver/imageupload/segmentation/
+
