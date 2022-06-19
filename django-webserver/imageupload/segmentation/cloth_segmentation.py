@@ -23,6 +23,7 @@ class SegmentationModel:
 
         self.model = smp.Unet(
             encoder_name="inceptionv4",
+            encoder_weights=None,
             in_channels=4,
             classes=1,
         ).float().to(self.device)
@@ -91,7 +92,8 @@ class SegmentationModel:
 
             segmentation = torch.sigmoid(segmentation)
             #segmentation = ((segmentation > 0.5)*255)
-            segmentation[segmentation>.5] = 1
+            segmentation[segmentation > .5] = 1
+            segmentation[segmentation <= .5] = 0
             to_pil = transforms.ToPILImage()
 
             return to_pil(segmentation.squeeze(0))
