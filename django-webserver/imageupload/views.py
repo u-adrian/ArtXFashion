@@ -119,7 +119,7 @@ class StyleTransferThread(Thread):
         print('semgentation saved')
 
 
-        result = self.do_style_transfer(transfer.person_image, transfer.style_image, transfer.person_image_segmentation)
+        result = self.do_style_transfer(transfer.style_image, transfer.person_image, transfer.person_image_segmentation)
         style_pil = Image.fromarray(result, 'RGB')
         path_style = f"images/style/style-{token}.png"
         saved = style_pil.save(path_style) 
