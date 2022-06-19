@@ -6,3 +6,4 @@ torch==1.11.0+cu113
 segmentation_models_pytorch
 torchvision
 opencv-python
+matplotlib
