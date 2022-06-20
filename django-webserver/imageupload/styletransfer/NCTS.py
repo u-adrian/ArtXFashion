@@ -28,7 +28,7 @@ class NCTS:
         content_art_weight=10,
         style_art_weight=1e6,
         ###CHANGED
-        steps=100,
+        steps=5000,
         learning_rate=0.03,
         show_every=100,
         fashion_image_feature_is_white=False,
@@ -161,9 +161,14 @@ class NCTS:
     ):
         fashion_mask = load_image(fashion_mask_path, for_vgg=False)
         fashion_image_vgg = load_image(
-            fashion_image_path, shape=fashion_mask.shape[2:], for_vgg=True
+            fashion_image_path, shape=fashion_mask.shape[:2], for_vgg=True
         )
         fashion_image_np = im_convert(fashion_image_vgg)
+
+        print("fashion_image_np", fashion_image_np.shape)
+        print("fashion_mask", fashion_mask.shape)
+        print("fashion_image_vgg", fashion_image_vgg.shape)
+        print("cuda", torch.cuda.is_available())
 
         selected_clothing = fashion_image_np * fashion_mask
 
