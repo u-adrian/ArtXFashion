@@ -17,8 +17,8 @@ class Transfer(models.Model):
     token = models.CharField(primary_key=True, default=uuid.uuid4, max_length=50, editable=False) #.hex[:30].lower() ##dont add uuid4() braces
     person_image = models.ImageField(upload_to=f'images/{rand}')
     style_image = models.ImageField(upload_to=f'images/{rand}')
-    person_image_segmentation = models.ImageField(upload_to='images/', default="loading.gif")
-    style_transfered = models.ImageField(upload_to='images/', default="loading.gif")
+    person_image_segmentation = models.ImageField(upload_to='images/', default="images/loading.gif")
+    style_transfered = models.ImageField(upload_to='images/', default="images/loading.gif")
     created_date = models.DateTimeField(default=now, editable=False) ###allows clearing later on 
     segment_start_x = models.IntegerField(default=0) ###allows clearing later on 
     segment_start_y = models.IntegerField(default=0) ###allows clearing later on 
