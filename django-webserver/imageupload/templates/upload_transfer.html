@@ -1,37 +1,49 @@
 
 <!DOCTYPE html>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous"><html>
-<body>
+<link href="style.css" rel="stylesheet">
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script> 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
 
+<body style="background-color: #afd378;">
 
+    <div style="width: 55%; margin: 0 auto; padding: 10px;">
 
+        <div style="margin:0 auto;">
+            <h1>Art X Fashion</h1>
+        </div>
+        <br>
 
+        <div style="background-color: beige; padding: 30px; padding-bottom: 70px;">
+            <form action="" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form }}
 
+                <input type="hidden" id='x_coord' name="x_coord" value="{{42}}"/>
+                <input type="hidden" id='y_coord' name="y_coord" value="{{43}}"/>
 
-<h1>Transfer!</h1>
-<p>Welcome to get started select two images!</p>
-</body>
+                <input type="submit" value="Submit">
+            </form>
 
+            <br>
+            <div>
+                <img id="person_img" src="#" alt="your image" />
+            </div>
+        </div>
 
-
-<form action="" method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form }}
-
-    <input type="hidden" id='x_coord' name="x_coord" value="{{42}}"/>
-    <input type="hidden" id='y_coord' name="y_coord" value="{{43}}"/>
-
-    <input type="submit" value="Submit">
-</form>
-<br>
-<div>
-<img id="person_img" src="#" alt="your image" />
+</div>
 
 <script>
+    id_person_image_field.onchange = evt => {
+        const [file] = id_person_image_field.files
+        if (file) {
+          person_img.src = URL.createObjectURL(file)
+        }
+      }
+</script>
 
+<script>
     $(document).ready(function() {
         const size = 20;
         $("img").on("click", function(event) {
@@ -42,24 +54,12 @@
             document.getElementById("x_coord").value = x;
             document.getElementById("y_coord").value = y;
             $( ".dots" ).remove();
-            $(this).parent().append(`<div class="dots" style="width: ${size}px; height: ${size}px; background: black; position: absolute; top: ${event.pageY-(size/2)}px; left: ${event.pageX-(size/2)}px; border-radius: ${size}px"/>`); 
+            $(this).parent().append(`<div class="dots" style="width: ${size}px; height: ${size}px; background: black; position: absolute; top: ${event.pageY-(size/2)}px; left: ${event.pageX-(size/2)}px; border-radius: ${size}px"/>`);
         });
     });
-    
 </script>
-</div>
 
-
-
-<script>
-
-id_person_image_field.onchange = evt => {
-    const [file] = id_person_image_field.files
-    if (file) {
-      person_img.src = URL.createObjectURL(file)
-    }
-  }
-</script>
+</body>
 
 
 
