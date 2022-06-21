@@ -7,3 +7,4 @@ segmentation_models_pytorch
 torchvision
 opencv-python
 matplotlib
+django-crispy-forms
