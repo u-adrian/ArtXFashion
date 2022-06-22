@@ -12,6 +12,21 @@
 {% if  transfer.progress != 100 %}
 <meta http-equiv="refresh" content="3">
 
+{% else  %}
+
+<script>
+
+    function reloadIt() {
+        if (window.location.href.substr(-2) !== "?r") {
+            window.location = window.location.href + "?r";
+        }
+    }
+    
+    setTimeout('reloadIt()', 3000)();
+    
+</script>
+
+
 {% endif %}
 
 <body style="background-color: #afd378;">
