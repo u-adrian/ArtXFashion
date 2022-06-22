@@ -21,6 +21,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('status/<uuid:token>/', imageuploadviews.uuid_status),
     path('upload', imageuploadviews.upload_transfer), 
-    path('landing', imageuploadviews.landing) 
+    path('landing', imageuploadviews.landing),
+    path('', imageuploadviews.upload_transfer),
+    path('/', imageuploadviews.upload_transfer)
 
 ]
