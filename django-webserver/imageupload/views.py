@@ -16,7 +16,7 @@ from .models import testfile, Transfer
 # from somewhere import handle_uploaded_file
 from .segmentation.cloth_segmentation import SegmentationModel
 
-
+from django.core.files.images import get_image_dimensions
 from django.core.files.images import ImageFile
 
 from .styletransfer.NCTS import NCTS
@@ -24,7 +24,7 @@ from django.apps import AppConfig
 from threading import Thread
 
 import matplotlib.pyplot as plt
-
+from os import listdir
 
 def handle_uploaded_file(upped_file, **kwargs):
     print("handling file function called")
@@ -124,7 +124,7 @@ class StyleTransferThread(Thread):
 
     def do_style_transfer(self, a_img, f_img, f_mask):
 
-        transfer_model = NCTS()
+        transfer_model = NCTS(self.transfer)
         return transfer_model.perform_ncts(
             art_image_path=a_img, fashion_image_path=f_img, fashion_mask_path=f_mask
         )
@@ -135,6 +135,14 @@ def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
 
     # newtestfile = testfile(file_name=str(upped_file), file_image=upped_file)#, file_file=upped_file
     # newtestfile.save()
+
+    width, height = get_image_dimensions(person_image)
+    print(f"width = {width}, height={height}")
+
+
+    ##showing images at 300er resolution
+    x = int(x)*width/300
+    y = int(y)*width/300
 
     newTransfer = Transfer(
         person_image=person_image,
@@ -165,6 +173,8 @@ def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
 
 
 def upload_transfer(request):
+
+    art_image_list = listdir('images/preselection_art_images/')
     if request.method == "POST":
         form = UploadImageForm(request.POST, request.FILES)
         print("post works")
@@ -183,7 +193,7 @@ def upload_transfer(request):
     else:
         print("else caught")
         form = UploadImageForm()
-    return render(request, "upload_transfer.html", {"form": form})
+    return render(request, "upload_transfer.html", {"form": form, "art_image_list" : art_image_list})
 
 
 def uuid_status(request, token):
