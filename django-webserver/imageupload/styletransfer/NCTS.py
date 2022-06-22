@@ -16,6 +16,8 @@ import torch.nn
 class NCTS:
     def __init__(
         self,
+        transfer,
+
         style_layers_and_style_weights={
             "conv1_1": 1.0,
             "conv2_1": 0.75,
@@ -28,12 +30,14 @@ class NCTS:
         content_art_weight=10,
         style_art_weight=1e6,
         ###CHANGED
-        steps=5000,
+        steps=50,
         learning_rate=0.03,
         show_every=100,
         fashion_image_feature_is_white=False,
         white_canvas=True,
+        
     ):
+        self.transfer = transfer
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.show_every = show_every
         self.white_canvas = white_canvas
@@ -150,7 +154,10 @@ class NCTS:
             optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
+            
 
+            self.transfer.progress = int(ii/self.steps*100)
+            self.transfer.save()
         return transformed_clothing
 
     def perform_ncts(

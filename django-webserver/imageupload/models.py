@@ -22,7 +22,9 @@ class Transfer(models.Model):
     created_date = models.DateTimeField(default=now, editable=False) ###allows clearing later on 
     segment_start_x = models.IntegerField(default=0) ###allows clearing later on 
     segment_start_y = models.IntegerField(default=0) ###allows clearing later on 
+    progress = models.IntegerField(default=5)  ###
 
 
+    
 admin.site.register(Transfer)
 admin.site.register(testfile)
