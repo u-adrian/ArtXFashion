@@ -23,6 +23,5 @@ urlpatterns = [
     path('upload', imageuploadviews.upload_transfer), 
     path('landing', imageuploadviews.landing),
     path('', imageuploadviews.upload_transfer),
-    path('/', imageuploadviews.upload_transfer)
 
 ]

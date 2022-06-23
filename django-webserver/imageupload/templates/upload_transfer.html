@@ -6,17 +6,7 @@
 
 
 
-<script>
 
-    function reloadIt() {
-        if (window.location.href.substr(-2) !== "?r") {
-            window.location = window.location.href + "?r";
-        }
-    }
-    
-    setTimeout('reloadIt()', 5000)();
-    
-    </script>
 
 
 
@@ -55,7 +45,7 @@
                 {{form.person_image_field}}
                 </div> 
                 <input type="hidden" id='x_coord' name="x_coord" value="{{42}}"/>
-                <input type="hidden" id='y_coord' name="y_coord" value="{{43}}"/>
+                <input type="hidden" id='y_coord' name="y_coord" value="{{42}}"/>
 
            
 

@@ -26,67 +26,14 @@ from threading import Thread
 import matplotlib.pyplot as plt
 from os import listdir
 
-def handle_uploaded_file(upped_file, **kwargs):
-    print("handling file function called")
-
-    newtestfile = testfile(
-        file_name=str(upped_file), file_image=upped_file
-    )  # , file_file=upped_file)
-    newtestfile.save()
-    # print(a)
-
-
-def upload_file(request):
-    if request.method == "POST":
-        form = UploadFileForm(request.POST, request.FILES)
-        print("post works")
-        print(form)
-        if form.is_valid():
-            print("isvalid")
-            handle_uploaded_file(request.FILES["file"])
-            return HttpResponse("Success uploading")
-            # return HttpResponseRedirect('/success/url/')
-    else:
-        print("else caught")
-        form = UploadFileForm()
-    return render(request, "upload.html", {"form": form})
-
-
-def index(request):
-    template = loader.get_template("myfirst.html")
-    all_entries = testfile.objects.all()
-    context = {"kek": "kekler", "list": all_entries}
-    # for entity in all_entries:
-    #    print(entity.file_name)
-    return render(request, "myfirst.html", context)
-    # return HttpResponse(template.render())
-
-
-def indexdep(request):
-    # UploadFileForm()
-    return HttpResponse("Hello, world. You're at the polls index.")
-
-
-######################
-def landing(request):
-
-    return render(request, "index.html")
-
-
-def convert(image):
-    im = image
-    im.convert("RGB")  # convert mode
-    # im.thumbnail(size) # resize image
-    thumb_io = BytesIO()  # create a BytesIO object
-    im.save(thumb_io, "JPEG", quality=85)  # save image to BytesIO object
-    thumbnail = File(thumb_io, name=image.name)  # create a django friendly File object
-
-
 from io import BytesIO
 from PIL import Image
 from django.core.files.images import ImageFile
 import requests
 
+
+### if more workers are included: refactor into diffrent module
+## other solution for scalability with microservices 
 
 class StyleTransferThread(Thread):
     def __init__(self, transfer):
@@ -96,7 +43,6 @@ class StyleTransferThread(Thread):
     def run(self):
 
         transfer = self.transfer
-        print("Thread running")
 
         token = transfer.token
 
@@ -110,7 +56,6 @@ class StyleTransferThread(Thread):
         transfer.person_image_segmentation = path
         transfer.save()
 
-        print("semgentation saved")
 
         result = self.do_style_transfer(
             transfer.style_image,
@@ -130,14 +75,34 @@ class StyleTransferThread(Thread):
         )
 
 
+
+######################
+def landing(request):
+
+    return render(request, "index.html")
+
+
+def convert(image):
+    im = image
+    im.convert("RGB")  # convert mode
+    # im.thumbnail(size) # resize image
+    thumb_io = BytesIO()  # create a BytesIO object
+    im.save(thumb_io, "JPEG", quality=85)  # save image to BytesIO object
+    thumbnail = File(thumb_io, name=image.name)  # create a django friendly File object
+
+
+
+
+
+
+
+
 def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
-    print("handling file function called")
 
     # newtestfile = testfile(file_name=str(upped_file), file_image=upped_file)#, file_file=upped_file
     # newtestfile.save()
 
     width, height = get_image_dimensions(person_image)
-    print(f"width = {width}, height={height}")
 
 
     ##showing images at 300er resolution
@@ -167,7 +132,6 @@ def handle_uploaded_images(person_image, style_image, x, y, **kwargs):
 
     ### use .run() for debugging!!!
     thread.start()
-    print("started")
 
     return token
 
@@ -177,10 +141,7 @@ def upload_transfer(request):
     art_image_list = listdir('images/preselection_art_images/')
     if request.method == "POST":
         form = UploadImageForm(request.POST, request.FILES)
-        print("post works")
-        print(form)
         if form.is_valid():
-            print("isvalid")
             x, y = request.POST["x_coord"], request.POST["y_coord"]
             token = handle_uploaded_images(
                 request.FILES["person_image_field"],
@@ -191,7 +152,6 @@ def upload_transfer(request):
             # return HttpResponse(f"Success uploading: {uuid}")
             return HttpResponseRedirect(f"/status/{token}/")
     else:
-        print("else caught")
         form = UploadImageForm()
     return render(request, "upload_transfer.html", {"form": form, "art_image_list" : art_image_list})
 
